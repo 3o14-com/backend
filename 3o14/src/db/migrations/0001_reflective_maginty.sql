@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD CONSTRAINT "username" CHECK (rtrim(ltrim("users"."username")) = "users"."username" AND "users"."username" <> '' AND length(username) <= 50);
