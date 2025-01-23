@@ -4,10 +4,12 @@
     "@fedify/fedify": "^1.3.5",
     "@fedify/postgres": "^0.2.0",
     "@logtape/logtape": "^0.8.0",
+    "@tailwindcss/cli": "^4.0.0",
     "drizzle-orm": "^0.38.4",
     "hono": "^4.5.0",
     "pg": "^8.13.1",
     "postgres": "^3.4.5",
+    "tailwindcss": "^4.0.0",
     "uuidv7-js": "^1.1.4",
     "x-forwarded-fetch": "^0.2.0",
     "zod": "^3.24.1"
@@ -20,9 +22,13 @@
     "tsx": "^4.19.2"
   },
   "scripts": {
-    "dev": "bun run --hot ./src/index.ts",
+    "tailwind": "bunx  @tailwindcss/cli -i ./static/main.css -o ./static/out.css --watch",
+    "dev": "bun tailwind & bun run --hot ./src/index.ts",
     "prod": "bun run ./src/index.ts",
     "db:generate": "bunx drizzle-kit generate",
     "db:migrate": "bunx drizzle-kit migrate"
-  }
+  },
+  "trustedDependencies": [
+    "@parcel/watcher"
+  ]
 }

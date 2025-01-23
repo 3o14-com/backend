@@ -12,7 +12,13 @@
         (system: f { pkgs = import nixpkgs { inherit system; }; });
     in {
       devShells = forEachSupportedSystem ({ pkgs }: {
-        default = pkgs.mkShell { packages = with pkgs; [ bun postgresql dbgate]; };
+        default = pkgs.mkShell {
+        packages = with pkgs; [ bun postgresql dbgate watchman];
+
+            shellHook = ''
+              export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib";
+            '';
+         };
       });
     };
 }
