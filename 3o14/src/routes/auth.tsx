@@ -9,6 +9,7 @@ import { users } from "../db/schema";
 import { LoginForm, type LoginFormErrors } from "../components/LoginForm";
 import { zValidator } from "@hono/zod-validator";
 import { hash, verify } from "argon2";
+import { sign } from "hono/jwt";
 
 const RegisterBodySchema = z.object({
   email: z
@@ -173,7 +174,17 @@ auth.post("/login", zValidator('form', LoginBodySchema), async (c) => {
     )
   }
 
-  return c.redirect("/");
+  const secret_key = Bun.env['SECRET_KEY'];
+  if (secret_key == undefined) throw new Error("SECRET_KEY must be defined");
+  const tokenLifespan = 60 * 60 * 24 * 1; // 1 day
+  const token = await sign({
+    userId: user.id,
+    exp: Math.floor(Date.now() / 1000) + tokenLifespan, // 1 day
+  },
+    secret_key);
+
+  c.header("Set-Cookie", `token=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${tokenLifespan}`);
+  return c.redirect("/profile");
 })
 
 export default auth;

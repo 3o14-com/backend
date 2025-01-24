@@ -6,6 +6,7 @@ import { Layout } from "../components/Layout";
 import { serveStatic } from "hono/bun";
 import LandingPage from "../components/Landing";
 import auth from "./auth";
+import profile from "./profile";
 
 // const logger = getLogger("3o14");
 
@@ -13,6 +14,7 @@ const app = new Hono();
 app.use('/static/*', serveStatic({ root: './' }))
 app.use(federation(fedi, () => undefined));
 app.route("/auth", auth);
+app.route("/profile", profile);
 
 app.get("/", (c) => {
   return c.html(
