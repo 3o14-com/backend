@@ -13,7 +13,7 @@
     in {
       devShells = forEachSupportedSystem ({ pkgs }: {
         default = pkgs.mkShell {
-        packages = with pkgs; [ bun postgresql dbgate watchman];
+        packages = with pkgs; [ bun postgresql dbgate watchman tailwindcss-language-server];
 
             shellHook = ''
               export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib";
