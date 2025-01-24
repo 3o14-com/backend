@@ -15,6 +15,13 @@
       "when": 1737617957613,
       "tag": "0001_reflective_maginty",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1737690715033,
+      "tag": "0002_closed_shadowcat",
+      "breakpoints": true
     }
   ]
 }
