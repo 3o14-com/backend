@@ -1,4 +1,4 @@
-import { bigint, boolean, check, jsonb, pgTable, text, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
+import { bigint, boolean, check, jsonb, pgTable, primaryKey, text, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
 import type { Uuid } from "../utils/uuid";
 import { relations, sql } from "drizzle-orm";
 
@@ -45,25 +45,64 @@ export const accounts = pgTable("accounts", {
   visibility: boolean("visibility").notNull().default(true),
   inboxUrl: text("inbox_url").notNull().unique(),
   sharedInboxUrl: text("shared_inbox_urk"),
-  outboxUrl: text("outbox_url").notNull().unique(),
-  followersUrl: text("followers_url").notNull().unique(),
-  followingUrl: text("following_url").notNull().unique(),
+  followersUrl: text("followers_url"),
+  followingUrl: text("following_url"),
   followingCount: bigint("following_count", { mode: "number" }).default(0),
   followersCount: bigint("followers_count", { mode: "number" }).default(0),
   postsCount: bigint("posts_count", { mode: "number" }).default(0),
   rsaPrivateKey: jsonb("rsa_private_key").$type<JsonWebKey>(),
-  rsaPublicKey: jsonb("rsa_public_key").$type<JsonWebKey>().notNull(),
+  rsaPublicKey: jsonb("rsa_public_key").$type<JsonWebKey>(),
   ed25519PrivateKey: jsonb("ed25519_private_key").$type<JsonWebKey>(),
-  ed25519PublicKey: jsonb("ed25519_public_key").$type<JsonWebKey>().notNull(),
+  ed25519PublicKey: jsonb("ed25519_public_key").$type<JsonWebKey>(),
 })
 
 
-export const Account = typeof accounts.$inferSelect;
-export const NewAccount = typeof accounts.$inferInsert
+export type Account = typeof accounts.$inferSelect;
+export type NewAccount = typeof accounts.$inferInsert
 
-export const accountRelations = relations(accounts, ({ one }) => ({
+export const accountRelations = relations(accounts, ({ one, many }) => ({
   user: one(users, {
     fields: [accounts.userId],
     references: [users.id]
   }),
+  following: many(follows, { relationName: "following" }),
+  follower: many(follows, { relationName: "follower" }),
 }));
+
+export const follows = pgTable(
+  "follows",
+  {
+    uri: text("uri").notNull().unique(),
+    followingId: uuid("following_id")
+      .$type<Uuid>()
+      .notNull()
+      .references(() => accounts.id, { onDelete: "cascade" }),
+    followerId: uuid("follower_id")
+      .$type<Uuid>()
+      .notNull()
+      .references(() => accounts.id, { onDelete: "cascade" }),
+    created: timestamp("created")
+      .notNull()
+      .default(currentTimestamp),
+  },
+  (table) => [
+    primaryKey({ columns: [table.followerId, table.followingId] }),
+    check("check_self_follow", sql`${table.followerId} != ${table.followingId}`),
+  ],
+);
+
+export type Follow = typeof follows.$inferSelect;
+export type NewFollow = typeof follows.$inferInsert;
+
+export const followRelations = relations(follows, ({ one }) => ({
+  following: one(accounts, {
+    fields: [follows.followingId],
+    references: [accounts.id],
+    relationName: "follower",
+  }),
+  follower: one(accounts, {
+    fields: [follows.followerId],
+    references: [accounts.id],
+    relationName: "following",
+  })
+}))
