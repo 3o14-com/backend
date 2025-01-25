@@ -5,6 +5,7 @@ export type RegisterFormErrors = Record<string, { message: string }>;
 export interface RegisterFormProps {
   email?: string,
   username?: string,
+  preferredName?: string,
   password?: string,
   confirmPassword?: string,
   errors?: RegisterFormErrors,
@@ -56,6 +57,25 @@ export function RegisterForm(props: RegisterFormProps) {
           </p>
         </div>
 
+        <div class="form-control w-full max-w-xs">
+          <label class="label" for="preferredName">
+            <span class="label-text">Preferred Name</span>
+          </label>
+          <input
+            type="text"
+            placeholder="enter your preferred name"
+            id="preferredName"
+            name="preferredName"
+            value={props.preferredName}
+            class={clsx('input input-bordered w-full max-w-xs', {
+              'input-error': props.errors?.preferredName,
+            })}
+            required
+          />
+          <p safe class="m-2 text-error h-4">
+            {props.errors?.preferredName && props.errors.preferredName.message}
+          </p>
+        </div>
 
         <div class="form-control w-full max-w-xs">
           <label class="label" for="password">
