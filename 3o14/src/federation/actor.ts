@@ -39,6 +39,7 @@ federation.setActorDispatcher("/users/@{identifier}", async (ctx, identifier) =>
     if (user == null) return [];
     const account = user.account;
     if (account.ed25519PrivateKey == null || account.rsaPrivateKey == null) return [];
+    if (account.ed25519PublicKey == null || account.rsaPublicKey == null) return [];
     return [
       {
         privateKey: await importJwk(account.rsaPrivateKey, "private"),
