@@ -5,11 +5,13 @@ import { RegisterForm, type RegisterFormErrors } from "../components/RegisterFor
 import { z } from "zod";
 import db from "../db/db";
 import { eq } from "drizzle-orm";
-import { users } from "../db/schema";
+import { accounts, users } from "../db/schema";
 import { LoginForm, type LoginFormErrors } from "../components/LoginForm";
-import { zValidator } from "@hono/zod-validator";
 import { hash, verify } from "argon2";
 import { sign } from "hono/jwt";
+
+import fedi from "../federation";
+import { exportJwk, generateCryptoKeyPair } from "@fedify/fedify";
 
 const RegisterBodySchema = z.object({
   email: z
@@ -19,7 +21,10 @@ const RegisterBodySchema = z.object({
   username: z
     .string()
     .min(1, 'Username is required')
-    .max(254, 'Email must not exceed 254 characters'),
+    .max(254, 'Username must not exceed 254 characters'),
+  preferredName: z
+    .string()
+    .min(1, 'preferred name is required'),
   password: z
     .string()
     .min(8, 'Password must be at least 8 characters long'),
@@ -60,6 +65,7 @@ auth.post("/register", async (c) => {
   if (result.success) {
     const email = result.data.email;
     const username = result.data.username;
+    const preferredName = result.data.preferredName;
     const password = result.data.password;
 
     const existingEmail = await db.query.users.findFirst({
@@ -91,6 +97,7 @@ auth.post("/register", async (c) => {
           email={email}
           username={username}
           password={password}
+          preferredName={preferredName}
           confirmPassword={password}
           errors={errors}
         />
@@ -99,12 +106,38 @@ auth.post("/register", async (c) => {
 
     try {
       const userId = crypto.randomUUID();
+      const accountId = crypto.randomUUID();
+      const fedCtx = fedi.createContext(c.req.raw, undefined);
+      const url = new URL(c.req.url);
+      const passwordHash = await hash(password);
+
+      const rsaKeyPairs = await generateCryptoKeyPair("RSASSA-PKCS1-v1_5");
+      const ed25519KeyPairs = await generateCryptoKeyPair("Ed25519");
+
       await db.transaction(async (tx) => {
         await tx.insert(users).values({
           id: userId,
           email,
           username,
-          password_hash: await hash(password),
+          passwordHash,
+        })
+
+        await tx.insert(accounts).values({
+          id: accountId,
+          userId,
+          uri: fedCtx.getActorUri(username).href,
+          handle: `@${username}@${url.host}`,
+          preferredName: preferredName,
+          inboxUrl: fedCtx.getInboxUri(username).href,
+          sharedInboxUrl: fedCtx.getInboxUri().href,
+          outboxUrl: "akshdfkfash",//fedCtx.getOutboxUri(username).href, // TODO proper outbox after posts
+          followersUrl: fedCtx.getFollowersUri(username).href,
+          followingUrl: fedCtx.getFollowingUri(username).href,
+          url: fedCtx.getActorUri(username).href,
+          rsaPublicKey: await exportJwk(rsaKeyPairs.publicKey),
+          rsaPrivateKey: await exportJwk(rsaKeyPairs.privateKey),
+          ed25519PublicKey: await exportJwk(ed25519KeyPairs.publicKey),
+          ed25519PrivateKey: await exportJwk(ed25519KeyPairs.privateKey),
         })
       })
       return c.redirect("/auth/login");
@@ -120,6 +153,7 @@ auth.post("/register", async (c) => {
       <RegisterForm
         email={data.email}
         username={data.username}
+        preferredName={data.preferredName}
         password={data.password}
         confirmPassword={data.confirmPassword}
         errors={errors}
@@ -153,38 +187,51 @@ const LoginBodySchema = z.object({
     .string()
 });
 
-auth.post("/login", zValidator('form', LoginBodySchema), async (c) => {
-  const validated = c.req.valid('form');
-  const email = validated.email;
-  const password = validated.password;
+auth.post("/login", async (c) => {
+  const data = await c.req.parseBody();
+  const result = LoginBodySchema.safeParse(data);
+  if (result.success) {
+    const email = result.data.email;
+    const password = result.data.password;
 
-  const user = await db.query.users.findFirst({
-    where: eq(users.email, email),
-  });
+    const user = await db.query.users.findFirst({
+      where: eq(users.email, email),
+    });
 
-  if (user == null || !(await verify(user.password_hash, password))) {
+    if (user == null || !(await verify(user.passwordHash, password))) {
+      const errors: LoginFormErrors = {};
+      errors['email'] = { message: "Invalid email or password" };
+      return c.html(
+        <LoginForm
+          email={email}
+          errors={errors}
+        />,
+      )
+    }
+
+    const secret_key = Bun.env['SECRET_KEY'];
+    if (secret_key == undefined) throw new Error("SECRET_KEY must be defined");
+    const tokenLifespan = 60 * 60 * 24 * 1; // 1 day
+    const token = await sign({
+      userId: user.id,
+      exp: Math.floor(Date.now() / 1000) + tokenLifespan, // 1 day
+    },
+      secret_key);
+
+    c.header("Set-Cookie", `token=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${tokenLifespan}`);
+    return c.redirect("/profile");
+  } else {
     const errors: LoginFormErrors = {};
-    errors['email'] = { message: "Invalid email or password" };
+    for (let error of result.error.errors) {
+      errors[error.path[0]] = { message: error.message };
+    }
     return c.html(
       <LoginForm
-        email={email}
+        email={data.email}
         errors={errors}
-      />,
-      400
-    )
+      />
+    );
   }
-
-  const secret_key = Bun.env['SECRET_KEY'];
-  if (secret_key == undefined) throw new Error("SECRET_KEY must be defined");
-  const tokenLifespan = 60 * 60 * 24 * 1; // 1 day
-  const token = await sign({
-    userId: user.id,
-    exp: Math.floor(Date.now() / 1000) + tokenLifespan, // 1 day
-  },
-    secret_key);
-
-  c.header("Set-Cookie", `token=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${tokenLifespan}`);
-  return c.redirect("/profile");
 })
 
 export default auth;
