@@ -130,7 +130,7 @@ auth.post("/register", async (c) => {
           preferredName: preferredName,
           inboxUrl: fedCtx.getInboxUri(username).href,
           sharedInboxUrl: fedCtx.getInboxUri().href,
-          outboxUrl: "akshdfkfash",//fedCtx.getOutboxUri(username).href, // TODO proper outbox after posts
+          // outboxUrl: "akshdfkfash",//fedCtx.getOutboxUri(username).href, // TODO proper outbox after posts
           followersUrl: fedCtx.getFollowersUri(username).href,
           followingUrl: fedCtx.getFollowingUri(username).href,
           url: fedCtx.getActorUri(username).href,
