@@ -1,8 +1,8 @@
-import { Accept, isActor, type Follow, type InboxContext } from "@fedify/fedify";
+import { Accept, Follow, isActor, Undo, type InboxContext } from "@fedify/fedify";
 import { getLogger } from "@logtape/logtape";
 import db from "../../db/db";
 import { accounts, follows } from "../../db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { persistAccount, updateAccountStats } from "../account";
 
 const logger = getLogger(["3o14", "fedi", "inbox", "follow"]);
@@ -59,4 +59,32 @@ export async function onFollow(
   });
   await ctx.sendActivity(sender, actor, accept);
   await updateAccountStats({ id: following.id });
+}
+
+export async function onUnFollow(
+  _ctx: InboxContext<void>,
+  undo: Undo
+): Promise<void> {
+  const object = await undo.getObject();
+  if (!(object instanceof Follow)) return;
+
+  if (object.actorId?.href !== undo.actorId?.href || object.id == null) return;
+  const actor = await undo.getActor();
+  if (!isActor(actor) || actor.id == null) {
+    logger.debug("Invalid actor: {actor}", { actor });
+    return;
+  }
+
+  const account = await persistAccount(actor);
+  if (account == null) return;
+  const deleted = await db
+    .delete(follows)
+    .where(
+      and(eq(follows.uri, object.id.href), eq(follows.followerId, account.id)),
+    )
+    .returning({ followingId: follows.followingId });
+
+  if (deleted.length > 0) {
+    await updateAccountStats({ id: deleted[0].followingId });
+  }
 }

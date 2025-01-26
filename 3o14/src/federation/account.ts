@@ -79,7 +79,7 @@ export async function updateAccountStats(
     .select({ cnt: count() })
     .from(schema.follows)
     .where(
-      eq(schema.follows.followerId, id),
+      eq(schema.follows.followingId, id),
     );
 
   // TODO post count updates
