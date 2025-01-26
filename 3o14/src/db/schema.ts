@@ -1,8 +1,18 @@
-import { bigint, boolean, check, jsonb, pgTable, primaryKey, text, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
+import { bigint, boolean, check, index, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, unique, uuid, varchar, type AnyPgColumn } from "drizzle-orm/pg-core";
 import type { Uuid } from "../utils/uuid";
-import { relations, sql } from "drizzle-orm";
+import { isNotNull, relations, sql } from "drizzle-orm";
 
 const currentTimestamp = sql`CURRENT_TIMESTAMP`;
+
+
+export const postVisibilityEnum = pgEnum("post_visibility", [
+  "public",
+  "unlisted",
+  "private",
+  "direct",
+]);
+
+export type PostVisibility = (typeof postVisibilityEnum.enumValues)[number];
 
 export const users = pgTable(
   "users",
@@ -13,6 +23,7 @@ export const users = pgTable(
     passwordHash: text("password_hash").notNull(),
     createdAt: timestamp("created_at").notNull().default(currentTimestamp),
     updatedAt: timestamp("updated_at").notNull().default(currentTimestamp),
+    visibility: postVisibilityEnum("visibility").notNull().default("public")
   },
   (table) => [
     check(
@@ -105,4 +116,85 @@ export const followRelations = relations(follows, ({ one }) => ({
     references: [accounts.id],
     relationName: "following",
   })
+}))
+
+export const postTypeEnum = pgEnum("post_type", [
+  "Article",
+  "Note",
+  "Question",
+]);
+
+export type PostType = (typeof postTypeEnum.enumValues)[number];
+
+export const posts = pgTable(
+  "posts",
+  {
+    id: uuid("id").$type<Uuid>().primaryKey(),
+    uri: text("uri").notNull().unique(),
+    type: postTypeEnum("type").notNull(),
+    accountId: uuid("account_id")
+      .$type<Uuid>()
+      .notNull()
+      .references(() => accounts.id, { onDelete: "cascade" }),
+    // TODO application
+    replyTargetId: uuid("reply_target_id")
+      .$type<Uuid>()
+      .references((): AnyPgColumn => posts.id, { onDelete: "set null" }),
+    sharingId: uuid("sharing_id")
+      .$type<Uuid>()
+      .references((): AnyPgColumn => posts.id, { onDelete: "cascade" }),
+    visibility: postVisibilityEnum("visibility").notNull(),
+    summary: text("summary"),
+    contentHtml: text("content_html"),
+    content: text("content"),
+    // TODO polls, media, tags etc
+    sensitive: boolean("sensitive").notNull().default(false),
+    url: text("url"),
+    repliesCount: bigint("replies_count", { mode: "number" }).default(0),
+    sharesCount: bigint("shares_count", { mode: "number" }).default(0),
+    likesCount: bigint("likes_count", { mode: "number" }).default(0),
+    published: timestamp("published", { withTimezone: true }),
+    updated: timestamp("updated", { withTimezone: true })
+      .notNull()
+      .default(currentTimestamp),
+  },
+  (table) => [
+    unique("posts_id_actor_id_unique").on(table.id, table.accountId),
+    unique().on(table.accountId, table.sharingId),
+    index().on(table.sharingId),
+    index().on(table.accountId),
+    index().on(table.accountId, table.sharingId),
+    index().on(table.replyTargetId),
+    index().on(table.visibility, table.accountId),
+    index()
+      .on(table.visibility, table.accountId, table.sharingId)
+      .where(isNotNull(table.sharingId)),
+    index()
+      .on(table.visibility, table.accountId, table.replyTargetId)
+      .where(isNotNull(table.replyTargetId)),
+  ]
+)
+
+export type Post = typeof posts.$inferSelect;
+export type NewPost = typeof posts.$inferInsert;
+
+export const postRelations = relations(posts, ({ one, many }) => ({
+  account: one(accounts, {
+    fields: [posts.accountId],
+    references: [accounts.id],
+  }),
+  //application
+  replyTarget: one(posts, {
+    fields: [posts.replyTargetId],
+    references: [posts.id],
+    relationName: "reply",
+  }),
+  replies: many(posts, { relationName: "reply" }),
+  // likes
+  sharing: one(posts, {
+    fields: [posts.sharingId],
+    references: [posts.id],
+    relationName: "share",
+  }),
+  shares: many(posts, { relationName: "share" }),
 }))

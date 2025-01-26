@@ -15,6 +15,13 @@
       "when": 1737821157996,
       "tag": "0001_worried_young_avengers",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1737905266293,
+      "tag": "0002_melted_nova",
+      "breakpoints": true
     }
   ]
 }
