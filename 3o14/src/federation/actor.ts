@@ -117,6 +117,47 @@ federation
   });
 
 federation
-  .setFollowingDispatcher("/users/@{identifier}/following", async (_ctx, _identifier) => {
-    return null
-  })
+  .setFollowingDispatcher(
+    "/users/@{identifier}/following",
+    async (_ctx, identifier, cursor) => {
+      const user = await db.query.users.findFirst({
+        where: eq(users.username, identifier),
+        with: { account: true },
+      });
+      if (user == null || cursor == null) return null;
+      const offset = Number.parseInt(cursor);
+      if (!Number.isInteger(offset)) return null;
+      const following = await db.query.accounts.findMany({
+        where: inArray(
+          accounts.id,
+          db
+            .select({ id: follows.followingId })
+            .from(follows)
+            .where(
+              eq(follows.followerId, user.account.id),
+            )
+        ),
+        offset,
+        orderBy: accounts.id,
+        limit: offset == null ? undefined : 41,
+      });
+
+      const result = {
+        items: following.slice(0, 40).map((f) => new URL(f.uri)),
+        nextCursor: following.length > 40 ? `${offset + 40}` : null,
+      };
+      logger.debug(
+        "Gathered {following} following for {identifier} with cursor {cursor}.",
+        { following: result.items.length, identifier, cursor },
+      );
+      return result
+    },
+  )
+  .setFirstCursor(async (_ctx, _identifier) => "0")
+  .setCounter(async (_ctx, identifier) => {
+    const user = await db.query.users.findFirst({
+      where: eq(users.username, identifier),
+      with: { account: true },
+    });
+    return user == null ? 0 : user.account.followingCount;
+  });
