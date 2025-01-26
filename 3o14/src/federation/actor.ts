@@ -1,8 +1,11 @@
-import { eq } from "drizzle-orm";
+import { and, eq, ilike, inArray } from "drizzle-orm";
 import db from "../db/db";
 import federation from "./federation";
-import { users } from "../db/schema";
+import { accounts, follows, users } from "../db/schema";
 import { Endpoints, importJwk, Person } from "@fedify/fedify";
+import { getLogger } from "@logtape/logtape";
+
+const logger = getLogger(["3o14", "fedi", "actor"]);
 
 federation.setActorDispatcher("/users/@{identifier}", async (ctx, identifier) => {
   const user = await db.query.users.findFirst({
@@ -28,6 +31,8 @@ federation.setActorDispatcher("/users/@{identifier}", async (ctx, identifier) =>
     endpoints: new Endpoints({
       sharedInbox: ctx.getInboxUri(),
     }),
+    discoverable: true,
+    indexable: true,
   })
 })
   .mapHandle((_, handle) => handle)
@@ -53,9 +58,63 @@ federation.setActorDispatcher("/users/@{identifier}", async (ctx, identifier) =>
   });
 
 federation
-  .setFollowersDispatcher("/users/@{identifier}/followers", async (_ctx, _identifier) => {
-    return null
-  })
+  .setFollowersDispatcher(
+    "/users/@{identifier}/followers",
+    async (_ctx, identifier, cursor, filter) => {
+      const user = await db.query.users.findFirst({
+        where: eq(users.username, identifier),
+        with: { account: true },
+      });
+      if (user == null) return null;
+      const offset = cursor == null ? undefined : Number.parseInt(cursor);
+      if (offset != null && !Number.isInteger(offset)) return null;
+      const followers = await db.query.accounts.findMany({
+        where: and(
+          inArray(
+            accounts.id,
+            db
+              .select({ id: follows.followerId })
+              .from(follows)
+              .where(
+                eq(follows.followingId, user.account.id),
+              )
+          ),
+          filter == null
+            ? undefined
+            : ilike(accounts.uri, `${filter.origin}/%`),
+        ),
+        offset,
+        orderBy: accounts.id,
+        limit: offset == null ? undefined : 41,
+      });
+
+      const items = offset == null ? followers : followers.slice(0, 40);
+      const result = {
+        items: items.map((f) => ({
+          id: new URL(f.uri),
+          inboxId: new URL(f.inboxUrl),
+          endpoints: {
+            sharedInbox: f.sharedInboxUrl ? new URL(f.sharedInboxUrl) : null,
+          },
+        })),
+        nextCursor:
+          offset != null && followers.length > 40 ? `${offset + 40}` : null,
+      };
+      logger.debug(
+        "Gathered {followers} followers for {identifier} with cursor {cursor} and filter {filter}.",
+        { followers: result.items.length, identifier, cursor, filter },
+      );
+      return result
+    },
+  )
+  .setFirstCursor(async (_ctx, _identifier) => "0")
+  .setCounter(async (_ctx, identifier) => {
+    const user = await db.query.users.findFirst({
+      where: eq(users.username, identifier),
+      with: { account: true },
+    });
+    return user == null ? 0 : user.account.followersCount;
+  });
 
 federation
   .setFollowingDispatcher("/users/@{identifier}/following", async (_ctx, _identifier) => {
