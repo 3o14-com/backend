@@ -165,13 +165,14 @@ auth.post("/register", async (c) => {
 
 
 auth.get("/login", async (c) => {
+  const next = c.req.query("next");
   return c.html(
     <Layout>
       <div class="h-screen flex flex-col items-center justify-center">
         <h2 class="text-3xl">3o14</h2>
         <div class="card card-compact w-96 bg-base-100 shadow-xl">
           <div class="card-body">
-            <LoginForm />
+            <LoginForm next={next} />
           </div>
         </div>
       </div>
@@ -190,6 +191,8 @@ const LoginBodySchema = z.object({
 auth.post("/login", async (c) => {
   const data = await c.req.parseBody();
   const result = LoginBodySchema.safeParse(data);
+  const next = data['next']?.toString();
+  console.log("next: ", next);
   if (result.success) {
     const email = result.data.email;
     const password = result.data.password;
@@ -201,8 +204,11 @@ auth.post("/login", async (c) => {
     if (user == null || !(await verify(user.passwordHash, password))) {
       const errors: LoginFormErrors = {};
       errors['email'] = { message: "Invalid email or password" };
+      c.res.headers.append('HX-Retarget', 'closest div');
+      c.res.headers.append('HX-Push-Url', 'false');
       return c.html(
         <LoginForm
+          next={next}
           email={email}
           errors={errors}
         />,
@@ -219,14 +225,17 @@ auth.post("/login", async (c) => {
       secret_key);
 
     c.header("Set-Cookie", `token=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${tokenLifespan}`);
-    return c.redirect("/profile");
+    return c.redirect(next ?? "/profile");
   } else {
     const errors: LoginFormErrors = {};
     for (let error of result.error.errors) {
       errors[error.path[0]] = { message: error.message };
     }
+    c.res.headers.append('HX-Retarget', 'closest div');
+    c.res.headers.append('HX-Push-Url', 'false');
     return c.html(
       <LoginForm
+        next={next}
         email={data.email}
         errors={errors}
       />
