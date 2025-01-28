@@ -24,6 +24,7 @@
             dbgate
             watchman
             tailwindcss-language-server
+            hoppscotch
             ngrok
           ];
 
