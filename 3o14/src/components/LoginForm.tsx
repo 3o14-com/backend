@@ -3,6 +3,7 @@ import { clsx } from "clsx"
 export type LoginFormErrors = Record<string, { message: string }>;
 
 export interface LoginFormProps {
+  next?: string,
   email?: string,
   password?: string,
   errors?: LoginFormErrors,
@@ -12,7 +13,7 @@ export function LoginForm(props: LoginFormProps) {
   return (
     <div>
       <h2 class="card-title">Login</h2>
-      <form hx-post="/auth/login" hx-target="closest div" hx-swap="outerHTML">
+      <form hx-post="/auth/login" hx-push-url="true" hx-target=".container" hx-swap="outerHTML">
         <div class="form-control w-full max-w-xs">
           <label class="label" for="email">
             <span class="label-text">Email</span>
@@ -55,6 +56,7 @@ export function LoginForm(props: LoginFormProps) {
         </div>
 
 
+        {props.next && <input type="hidden" name="next" value={props.next} />}
         <div class="mt-2 flex">
           <button class="btn btn-primary" type="submit">
             Login
