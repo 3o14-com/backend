@@ -1,4 +1,19 @@
-import { bigint, boolean, check, index, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, unique, uuid, varchar, type AnyPgColumn } from "drizzle-orm/pg-core";
+import {
+  bigint,
+  boolean,
+  check,
+  index,
+  jsonb,
+  pgEnum,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  unique,
+  uuid,
+  varchar,
+  type AnyPgColumn
+} from "drizzle-orm/pg-core";
 import type { Uuid } from "../utils/uuid";
 import { isNotNull, relations, sql } from "drizzle-orm";
 
@@ -198,3 +213,67 @@ export const postRelations = relations(posts, ({ one, many }) => ({
   }),
   shares: many(posts, { relationName: "share" }),
 }))
+
+export const scopeEnum = pgEnum("scope", [
+  "read",
+  "read:accounts",
+  "read:blocks",
+  "read:follows",
+  "write",
+  "write:accounts",
+  "write:blocks",
+  "write:follows",
+  "follow",
+  "push",
+])
+
+export type Scope = (typeof scopeEnum.enumValues)[number];
+
+export const applications = pgTable("applications", {
+  id: uuid("id").$type<Uuid>().primaryKey(),
+  name: varchar("name", { length: 256 }).notNull(),
+  redirectUris: text("redirect_uris").array().notNull(),
+  scopes: scopeEnum("scopes").array().notNull(),
+  website: text("website"),
+  clientId: text("client_id").notNull().unique(),
+  clientSecret: text("client_secret").notNull(),
+  created: timestamp("created")
+    .notNull()
+    .default(currentTimestamp),
+});
+
+export type Application = typeof applications.$inferSelect;
+export type NewApplication = typeof applications.$inferInsert;
+
+export const applicationRelations = relations(applications, ({ many }) => ({
+  accessTokens: many(accessTokens),
+}));
+
+export const accessTokens = pgTable("access_tokens", {
+  code: text("code").primaryKey(),
+  applicationId: uuid("application_id")
+    .$type<Uuid>()
+    .notNull()
+    .references(() => applications.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .$type<Uuid>()
+    .references(() => users.id, { onDelete: "cascade" }),
+  scopes: scopeEnum("scopes").array().notNull(),
+  created: timestamp("created", { withTimezone: true })
+    .notNull()
+    .default(currentTimestamp),
+})
+
+export type AccessToken = typeof accessTokens.$inferSelect;
+export type NewAccessToken = typeof accessTokens.$inferInsert;
+
+export const accessTokenRelations = relations(accessTokens, ({ one }) => ({
+  application: one(applications, {
+    fields: [accessTokens.applicationId],
+    references: [applications.id],
+  }),
+  user: one(users, {
+    fields: [accessTokens.userId],
+    references: [users.id],
+  }),
+}));
