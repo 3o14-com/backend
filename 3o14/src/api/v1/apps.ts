@@ -4,7 +4,7 @@ import { applications, type NewApplication, type Scope, scopeEnum } from "../../
 import { getLogger } from "@logtape/logtape";
 import { base64 } from "@hexagon/base64";
 import db from "../../db/db";
-import type { Variables } from "../../middlewares/oauth";
+import { tokenRequired, type Variables } from "../../middlewares/oauth";
 
 const app = new Hono<{ Variables: Variables }>();
 
@@ -98,6 +98,7 @@ app.post("/", async (c) => {
     } satisfies NewApplication)
     .returning();
   const app = apps[0];
+  console.log("test")
   const result = {
     id: app.id,
     name: app.name,
@@ -110,6 +111,20 @@ app.post("/", async (c) => {
   };
   logger.debug("Created application: {app}", { app: result });
   return c.json(result);
+});
+
+
+app.get("/verify_credentials", tokenRequired, async (c) => {
+  const token = c.get("token");
+  const app = token.application;
+  return c.json({
+    id: app.id,
+    name: app.name,
+    website: app.website,
+    scopes: app.scopes,
+    redirect_uris: app.redirectUris,
+    redirect_uri: app.redirectUris.join(" "),
+  });
 });
 
 export default app;

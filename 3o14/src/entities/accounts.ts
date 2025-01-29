@@ -61,7 +61,7 @@ export function serializeUser(
     ...serializeAccount(user.account, baseUrl),
     discoverable: true, // TODO discoverable field in db
     source: user && {
-      note: user.account.bio,
+      note: user.account.bio ?? "",
       privacy: user.visibility,
       // sensitive: accountOwner.account.sensitive,
       // language: accountOwner.language,
