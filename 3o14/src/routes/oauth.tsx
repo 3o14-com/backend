@@ -81,6 +81,10 @@ app.get(
   },
 );
 
+
+
+
+
 interface AuthorizationPageProps {
   users: (User & { account: Account })[];
   application: Application;
@@ -91,68 +95,89 @@ interface AuthorizationPageProps {
 
 function AuthorizationPage(props: AuthorizationPageProps) {
   return (
-    <Layout title={`3o14: Authorize ${props.application.name}`}>
-      <hgroup>
-        <h1>Authorize {props.application.name}</h1>
-        <p>Do you want to authorize this application to access your account?</p>
-      </hgroup>
-      <p>It allows the application to:</p>
-      <ul>
-        {props.scopes.map((scope) => (
-          <li key={scope}>
-            <code>{scope}</code>
-          </li>
-        ))}
-      </ul>
-      <form action="/oauth/authorize" method="post">
-        <p>Choose an account to authorize:</p>
-        {props.users.map((user, i) => {
-          const accountName = user.account.preferredName;
-          return (
-            <label>
-              <input
-                type="radio"
-                name="account_id"
-                value={user.id}
-                checked={i === 0}
-              />
-              {/* biome-ignore lint/security/noDangerouslySetInnerHtml: xss protected */}
-              {/* <strong dangerouslySetInnerHTML={{ __html: accountName }} /> */}
-              <strong>{accountName}</strong>
-              <p style="margin-left: 1.75em; margin-top: 0.25em;">
-                <small>{user.account.handle}</small>
-              </p>
-            </label>
-          );
-        })}
-        <input
-          type="hidden"
-          name="application_id"
-          value={props.application.id}
-        />
-        <input type="hidden" name="redirect_uri" value={props.redirectUri} />
-        <input type="hidden" name="scopes" value={props.scopes.join(" ")} />
-        {props.state != null && (
-          <input type="hidden" name="state" value={props.state} />
-        )}
-        <div role="group">
-          {props.redirectUri !== "urn:ietf:wg:oauth:2.0:oob" && (
-            <button
-              type="submit"
-              class="secondary"
-              name="decision"
-              value="deny"
-            >
-              Deny
-            </button>
-          )}
-          <button type="submit" name="decision" value="allow">
-            Allow
-          </button>
+    <Layout>
+      <div class="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-xl mx-auto">
+          <div class="bg-white shadow rounded-lg overflow-hidden">
+            {/* Header */}
+            <div class="px-6 py-4 border-b border-gray-200">
+              <h2 class="text-xl font-semibold text-gray-900">
+                3o14: Authorize {props.application.name}
+              </h2>
+            </div>
+
+            {/* Content */}
+            <div class="px-6 py-4 space-y-6">
+              <div>
+                <p class="text-gray-700">Do you want to authorize {props.application.name}</p>
+                <div class="mt-4">
+                  <p class="font-medium text-gray-900 mb-2">It allows the application to:</p>
+                  <ul class="space-y-2">
+                    {props.scopes.map((scope) => (
+                      <li key={scope} class="flex items-center">
+                        <code class="px-2 py-1 bg-gray-100 rounded text-sm text-gray-800">
+                          {scope}
+                        </code>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              <form action="/oauth/authorize" method="post" class="space-y-6">
+                <div>
+                  <p class="font-medium text-gray-900 mb-4">Choose an account to authorize:</p>
+                  <div class="space-y-3">
+                    {props.users.map((user, i) => (
+                      <label key={user.id} class="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="account_id"
+                          value={user.id}
+                          checked={i === 0}
+                          class="mt-1 h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                        />
+                        <div class="flex-1">
+                          <strong class="text-gray-900">{user.account.preferredName}</strong>
+                          <p class="mt-1 text-sm text-gray-500">{user.account.handle}</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <input type="hidden" name="application_id" value={props.application.id} />
+                <input type="hidden" name="redirect_uri" value={props.redirectUri} />
+                <input type="hidden" name="scopes" value={props.scopes.join(" ")} />
+                {props.state != null && <input type="hidden" name="state" value={props.state} />}
+
+                <div class="flex items-center justify-end space-x-4">
+                  {props.redirectUri !== "urn:ietf:wg:oauth:2.0:oob" && (
+                    <button
+                      type="submit"
+                      name="decision"
+                      value="deny"
+                      class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                      Deny
+                    </button>
+                  )}
+                  <button
+                    type="submit"
+                    name="decision"
+                    value="allow"
+                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    Allow
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         </div>
-      </form>
+      </div>
     </Layout>
-  );
+  )
 }
 
 app.post(
