@@ -57,7 +57,7 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}:git-${{ github.sha }}
             ghcr.io/${{ github.repository }}:${{ steps.version.outputs.value }}-dev.${{ github.run_number }}
-            ghcr.io/${{ github.repository }}:canary
+            ghcr.io/${{ github.repository }}:pii
           labels:
             org.opencontainers.image.revision=${{ github.sha }}
           annotations: |
