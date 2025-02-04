@@ -1,6 +1,13 @@
 FROM oven/bun:1.1.43 AS base
 WORKDIR /usr/src/app
 
+LABEL org.opencontainers.image.title="3o14"
+LABEL org.opencontainers.image.description="A federated micro-blogging platform."
+LABEL org.opencontainers.image.url="https://github.com/3o14-com/bftgu"
+LABEL org.opencontainers.image.source="https://github.com/3o14-com/bftgu"
+LABEL org.opencontainers.image.licenses="AGPL-3.0-only"
+
+
 FROM base AS install
 RUN mkdir -p /temp/dev
 COPY package.json bun.lockb /temp/dev/
