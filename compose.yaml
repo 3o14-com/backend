@@ -1,6 +1,6 @@
 services:
   3o14:
-    image: ghcr.io/3o14-com/backend:canary
+    image: ghcr.io/3o14-com/backend:pii
     ports:
     - "8000:8000"
     environment:
