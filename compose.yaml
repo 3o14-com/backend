@@ -4,7 +4,7 @@ services:
     ports:
     - "8000:8000"
     environment:
-      DATABASE_URL: "postgres://user:password@postgres:5432/database"
+      DATABASE_URL: "{DATABASE_URL}"
       SECRET_KEY: "${SECRET_KEY}"
       # LOG_LEVEL: "${LOG_LEVEL}"
       # BEHIND_PROXY: "${BEHIND_PROXY}"
