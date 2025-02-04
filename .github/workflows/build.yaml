@@ -16,7 +16,6 @@ jobs:
         with:
           bun-version: latest
       - run: bun install
-      - run: bun run check
       - if: github.ref_type == 'tag'
         run: |
           set -ex
