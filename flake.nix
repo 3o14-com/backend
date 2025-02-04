@@ -26,6 +26,7 @@
             tailwindcss-language-server
             hoppscotch
             ngrok
+            minio
           ];
 
           shellHook = ''
