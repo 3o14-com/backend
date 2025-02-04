@@ -126,7 +126,8 @@ auth.post("/register", async (c) => {
           id: accountId,
           userId,
           uri: fedCtx.getActorUri(username).href,
-          handle: `@${username}@${url.host}`,
+          // handle: `@${username}@${url.host}`,
+          handle: `@${username}@3o14.com`, // TODO WARN yea fix this
           preferredName: preferredName,
           inboxUrl: fedCtx.getInboxUri(username).href,
           sharedInboxUrl: fedCtx.getInboxUri().href,
