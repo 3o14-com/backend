@@ -7,4 +7,5 @@ const server = Bun.serve({
   fetch: behindProxy(app.fetch.bind(app)),
 });
 
+
 console.log("Server started at", server.url.href);
