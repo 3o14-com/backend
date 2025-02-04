@@ -8,4 +8,4 @@ const server = Bun.serve({
 });
 
 
-console.log("Server started at", server.url.href);
+console.log("Server started at ", server.url.href);
