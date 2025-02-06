@@ -5,29 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1737791833477,
-      "tag": "0000_unknown_vargas",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1737821157996,
-      "tag": "0001_worried_young_avengers",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1737905266293,
-      "tag": "0002_melted_nova",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1738077490307,
-      "tag": "0003_orange_power_man",
+      "when": 1738844061965,
+      "tag": "0000_tidy_robin_chapel",
       "breakpoints": true
     }
   ]
