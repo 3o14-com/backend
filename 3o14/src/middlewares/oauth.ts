@@ -8,7 +8,7 @@ export type Variables = {
   token: AccessToken & {
     application: Application;
     user:
-    | (User & { account: Account })
+    | (User & { account: Account & { successor: Account | null } })
     | null;
   };
 };
