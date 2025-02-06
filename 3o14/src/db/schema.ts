@@ -130,6 +130,7 @@ export const accountRelations = relations(accounts, ({ one, many }) => ({
   blocks: many(blocks, { relationName: "blocker" }),
   blockedBy: many(blocks, { relationName: "blocked" }),
   instance: one(instances),
+  featuredTags: many(featuredTags),
 }));
 
 
@@ -553,7 +554,7 @@ export const bookmarks = pgTable(
     userId: uuid("user_id")
       .$type<Uuid>()
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => accounts.id, { onDelete: "cascade" }),
     created: timestamp("created", { withTimezone: true })
       .notNull()
       .default(currentTimestamp),
@@ -572,9 +573,9 @@ export const bookmarkRelations = relations(bookmarks, ({ one }) => ({
     fields: [bookmarks.postId],
     references: [posts.id],
   }),
-  users: one(users, {
+  accounts: one(accounts, {
     fields: [bookmarks.userId],
-    references: [users.id],
+    references: [accounts.id],
   }),
 }));
 
@@ -585,10 +586,10 @@ export type MarkerType = (typeof markerTypeEnum.enumValues)[number];
 export const markers = pgTable(
   "markers",
   {
-    userId: uuid("user_id")
+    accountId: uuid("account_id")
       .$type<Uuid>()
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => accounts.id, { onDelete: "cascade" }),
     type: markerTypeEnum("type").notNull(),
     lastReadId: text("last_read_id").notNull(),
     version: bigint("version", { mode: "number" }).notNull().default(1),
@@ -596,16 +597,16 @@ export const markers = pgTable(
       .notNull()
       .default(currentTimestamp),
   },
-  (table) => [primaryKey({ columns: [table.userId, table.type] })],
+  (table) => [primaryKey({ columns: [table.accountId, table.type] })],
 );
 
 export type Marker = typeof markers.$inferSelect;
 export type NewMarker = typeof markers.$inferInsert;
 
 export const markerRelations = relations(markers, ({ one }) => ({
-  user: one(users, {
-    fields: [markers.userId],
-    references: [users.id],
+  account: one(accounts, {
+    fields: [markers.accountId],
+    references: [accounts.id],
   }),
 }));
 
@@ -613,23 +614,23 @@ export const featuredTags = pgTable(
   "featured_tags",
   {
     id: uuid("id").$type<Uuid>().primaryKey(),
-    userId: uuid("user_id")
+    accountId: uuid("account_id")
       .$type<Uuid>()
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => accounts.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     created: timestamp("created", { withTimezone: true }),
   },
-  (table) => [unique().on(table.userId, table.name)],
+  (table) => [unique().on(table.accountId, table.name)],
 );
 
 export type FeaturedTag = typeof featuredTags.$inferSelect;
 export type NewFeaturedTag = typeof featuredTags.$inferInsert;
 
 export const featuredTagRelations = relations(featuredTags, ({ one }) => ({
-  userId: one(users, {
-    fields: [featuredTags.userId],
-    references: [users.id],
+  account: one(accounts, {
+    fields: [featuredTags.accountId],
+    references: [accounts.id],
   }),
 }));
 
@@ -644,10 +645,10 @@ export type ListRepliesPolicy =
 
 export const lists = pgTable("lists", {
   id: uuid("id").$type<Uuid>().primaryKey(),
-  userId: uuid("user_id")
+  accountId: uuid("account_id")
     .$type<Uuid>()
     .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
+    .references(() => accounts.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   repliesPolicy: listRepliesPolicyEnum("replies_policy")
     .notNull()
@@ -662,9 +663,9 @@ export type List = typeof lists.$inferSelect;
 export type NewList = typeof lists.$inferInsert;
 
 export const listRelations = relations(lists, ({ one, many }) => ({
-  user: one(users, {
-    fields: [lists.userId],
-    references: [users.id],
+  account: one(accounts, {
+    fields: [lists.accountId],
+    references: [accounts.id],
   }),
   members: many(listMembers),
 }));
