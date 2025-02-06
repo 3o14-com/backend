@@ -108,7 +108,7 @@ auth.post("/register", async (c) => {
       const userId = crypto.randomUUID();
       const accountId = crypto.randomUUID();
       const fedCtx = fedi.createContext(c.req.raw, undefined);
-      const url = new URL(c.req.url);
+      // const url = new URL(c.req.url);
       const passwordHash = await hash(password);
 
       const rsaKeyPairs = await generateCryptoKeyPair("RSASSA-PKCS1-v1_5");
@@ -135,10 +135,10 @@ auth.post("/register", async (c) => {
           id: accountId,
           userId,
           uri: fedCtx.getActorUri(username).href,
-          // handle: `@${username}@${fedCtx.host}`,
+          handle: `@${username}@${fedCtx.host}`,
+          // handle: `@${username}@3o14.com`,
           instanceHost: fedCtx.host,
           name: preferredName,
-          handle: `@${username}@3o14.com`,
           // bio,
           url: fedCtx.getActorUri(username).href,
           protected: false,
