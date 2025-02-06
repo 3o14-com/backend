@@ -1,26 +1,77 @@
-import { getActorHandle, Link, type Actor } from "@fedify/fedify";
+import {
+  type Actor,
+  Announce,
+  Block,
+  type Context,
+  Create,
+  type DocumentLoader,
+  Emoji,
+  Follow,
+  Link,
+  PropertyValue,
+  Reject,
+  Undo,
+  formatSemVer,
+  getActorHandle,
+  getNodeInfo,
+  isActor,
+  lookupObject,
+} from "@fedify/fedify";
+import {
+  type ExtractTablesWithRelations,
+  and,
+  count,
+  eq,
+  inArray,
+  isNotNull,
+  sql,
+} from "drizzle-orm";
+import type { PgDatabase } from "drizzle-orm/pg-core";
+import type { PostgresJsQueryResultHKT } from "drizzle-orm/postgres-js";
 import * as schema from "../db/schema";
-import db from "../db/db";
-import { count, eq, sql } from "drizzle-orm";
-import { uuidv7, type Uuid } from "../utils/uuid";
+import type { NewPinnedPost, Post } from "../db/schema";
+import { type Uuid, uuidv7 } from "../utils/uuid";
+import { iterateCollection } from "./collection";
+import {
+  isPost,
+  persistPost,
+  persistSharingPost,
+  updatePostStats,
+} from "./post";
+
+export const REMOTE_ACTOR_FETCH_POSTS = Number.parseInt(
+  // biome-ignore lint/complexity/useLiteralKeys: tsc rants about this (TS4111)
+  Bun.env["REMOTE_ACTOR_FETCH_POSTS"] ?? "10",
+);
 
 export async function persistAccount(
+  db: PgDatabase<
+    PostgresJsQueryResultHKT,
+    typeof schema,
+    ExtractTablesWithRelations<typeof schema>
+  >,
   actor: Actor,
+  baseUrl: string | URL,
+  options: {
+    contextLoader?: DocumentLoader;
+    documentLoader?: DocumentLoader;
+    skipUpdate?: boolean;
+  } = {},
 ): Promise<(schema.Account & { user: schema.User | null }) | null> {
+  const opts = { ...options, suppressError: true };
   if (
     actor.id == null ||
     actor.inboxId == null ||
-    (actor.name == null || actor.preferredUsername == null)
+    (actor.name == null && actor.preferredUsername == null)
   ) {
     return null;
   }
-
   const existingAccount = await db.query.accounts.findFirst({
-    where: eq(schema.accounts.uri, actor.id.href),
     with: { user: true },
+    where: eq(schema.accounts.uri, actor.id.href),
   });
-  if (existingAccount != null) return existingAccount;
-
+  if (options.skipUpdate && existingAccount != null) return existingAccount;
+  if (existingAccount?.user != null) return existingAccount;
   let handle: string;
   try {
     handle = await getActorHandle(actor);
@@ -28,37 +79,212 @@ export async function persistAccount(
     if (e instanceof TypeError) return null;
     throw e;
   }
-  const followers = await actor.getFollowers();
-  const followings = await actor.getFollowing();
+  const avatar = await actor.getIcon(opts);
+  const cover = await actor.getImage(opts);
+  const followers = await actor.getFollowers(opts);
+  const successor = await actor.getSuccessor(opts);
+  const successorId =
+    successor == null
+      ? null
+      : ((
+        await persistAccount(db, successor, baseUrl, {
+          ...options,
+          skipUpdate: true,
+        })
+      )?.id ?? null);
+  const fieldHtmls: Record<string, string> = {};
+  for await (const attachment of actor.getAttachments(opts)) {
+    if (
+      attachment instanceof PropertyValue &&
+      attachment.name != null &&
+      attachment.value != null
+    ) {
+      fieldHtmls[attachment.name.toString()] = attachment.value.toString();
+    }
+  }
+  const emojis: Record<string, string> = {};
+  for await (const tag of actor.getTags(opts)) {
+    if (tag instanceof Emoji && tag.name != null) {
+      const icon = await tag.getIcon(opts);
+      if (icon?.url == null) continue;
+      let href: string;
+      if (icon.url instanceof Link) {
+        if (icon.url.href == null) continue;
+        href = icon.url.href.href;
+      } else href = icon.url.href;
+      emojis[tag.name.toString()] = href;
+    }
+  }
+  const nodeInfo = await getNodeInfo(actor.id, {
+    parse: "best-effort",
+  });
+  const instanceValues: Omit<schema.NewInstance, "host"> = {
+    software: nodeInfo?.software.name ?? null,
+    softwareVersion:
+      nodeInfo?.software == null ||
+        formatSemVer(nodeInfo.software.version) === "0.0.0"
+        ? null
+        : formatSemVer(nodeInfo.software.version),
+  };
+  await db
+    .insert(schema.instances)
+    .values({
+      host: actor.id.host,
+      ...instanceValues,
+    })
+    .onConflictDoUpdate({
+      target: schema.instances.host,
+      set: instanceValues,
+    });
+  const values: Omit<schema.NewAccount, "id" | "uri"> = {
+    name: actor?.name?.toString() ?? actor?.preferredUsername?.toString() ?? "",
+    handle,
+    bio: actor.summary?.toString(),
+    url: actor.url instanceof Link ? actor.url.href?.href : actor.url?.href,
+    protected: actor.manuallyApprovesFollowers ?? false,
+    avatarurl:
+      avatar?.url instanceof Link ? avatar.url.href?.href : avatar?.url?.href,
+    coverurl:
+      cover?.url instanceof Link ? cover.url.href?.href : cover?.url?.href,
+    inboxUrl: actor.inboxId.href,
+    followersUrl: (followers?.id ?? actor?.followersId)?.href,
+    sharedInboxUrl: actor.endpoints?.sharedInbox?.href,
+    featuredUrl: actor.featuredId?.href,
+    followingCount: (await actor.getFollowing(opts))?.totalItems ?? 0,
+    followersCount: followers?.totalItems ?? 0,
+    postsCount: (await actor.getOutbox(opts))?.totalItems ?? 0,
+    successorId,
+    aliases: actor?.aliasIds?.map((alias) => alias.href) ?? [],
+    instanceHost: actor.id.host,
+    fieldHtmls,
+  };
   await db
     .insert(schema.accounts)
     .values({
       id: uuidv7(),
       uri: actor.id.href,
-      preferredName: actor?.name?.toString() ?? actor?.preferredUsername?.toString() ?? "",
-      bio: actor.summary?.toString(),
-      url: actor.url instanceof Link ? actor.url.href?.href : actor.url?.href,
-      inboxUrl: actor.inboxId.href,
-      sharedInboxUrl: actor.endpoints?.sharedInbox?.href,
-      followersUrl: (followers?.id ?? actor?.followersId)?.href,
-      followingUrl: (followings?.id ?? actor?.followingId)?.href,
-      followersCount: followers?.totalItems ?? 0,
-      followingCount: followings?.totalItems ?? 0,
-      postsCount: (await actor.getOutbox())?.totalItems ?? 0,
-      handle,
+      ...values,
+    })
+    .onConflictDoUpdate({
+      target: schema.accounts.uri,
+      set: values,
+      setWhere: eq(schema.accounts.uri, actor.id.href),
     });
   const account = await db.query.accounts.findFirst({
     with: { user: true },
     where: eq(schema.accounts.uri, actor.id.href),
   });
   if (account == null) return null;
-
+  const [{ posts }] = await db
+    .select({ posts: count() })
+    .from(schema.posts)
+    .where(eq(schema.posts.accountId, account.id));
+  if (posts > 0) return account;
+  const featuredCollection = await actor.getFeatured(opts);
+  if (featuredCollection != null) {
+    const posts: Post[] = [];
+    for await (const item of iterateCollection(featuredCollection, opts)) {
+      if (!isPost(item)) continue;
+      const post = await persistPost(db, item, baseUrl, {
+        ...options,
+        account,
+        skipUpdate: true,
+      });
+      if (post == null) continue;
+      posts.unshift(post);
+    }
+    for (const post of posts) {
+      await db
+        .insert(schema.pinnedPosts)
+        .values({
+          postId: post.id,
+          accountId: post.accountId,
+        } satisfies NewPinnedPost)
+        .onConflictDoNothing();
+    }
+  }
   return account;
 }
 
+export async function persistAccountPosts(
+  db: PgDatabase<
+    PostgresJsQueryResultHKT,
+    typeof schema,
+    ExtractTablesWithRelations<typeof schema>
+  >,
+  account: schema.Account & { user: schema.User | null },
+  fetchPosts: number,
+  baseUrl: URL | string,
+  options: {
+    contextLoader?: DocumentLoader;
+    documentLoader?: DocumentLoader;
+    suppressError?: boolean;
+  } = {},
+): Promise<void> {
+  if (fetchPosts < 1) return;
+  const actor = await lookupObject(account.uri, options);
+  if (!isActor(actor)) return;
+  const outboxCollection = await actor.getOutbox(options);
+  if (outboxCollection != null) {
+    let i = 0;
+    for await (const activity of iterateCollection(outboxCollection, options)) {
+      if (activity instanceof Create) {
+        const item = await activity.getObject(options);
+        if (!isPost(item)) continue;
+        const post = await persistPost(db, item, baseUrl, {
+          ...options,
+          account,
+          skipUpdate: true,
+        });
+        if (post?.replyTargetId != null) i++;
+      } else if (activity instanceof Announce) {
+        const item = await activity.getObject(options);
+        if (!isPost(item)) continue;
+        await db.transaction(async (tx) => {
+          const post = await persistSharingPost(tx, activity, item, baseUrl, {
+            ...options,
+            account,
+          });
+          if (post?.sharingId != null) {
+            await updatePostStats(tx, { id: post.sharingId });
+          }
+          if (post != null) i++;
+        });
+      }
+      if (i >= fetchPosts) break;
+    }
+  }
+}
+
+export async function persistAccountByUri(
+  db: PgDatabase<
+    PostgresJsQueryResultHKT,
+    typeof schema,
+    ExtractTablesWithRelations<typeof schema>
+  >,
+  uri: string,
+  baseUrl: URL | string,
+  options: {
+    contextLoader?: DocumentLoader;
+    documentLoader?: DocumentLoader;
+  } = {},
+): Promise<schema.Account | null> {
+  const account = await db.query.accounts.findFirst({
+    where: eq(schema.accounts.uri, uri),
+  });
+  if (account != null) return account;
+  const actor = await lookupObject(uri, options);
+  if (!isActor(actor) || actor.id == null) return null;
+  return await persistAccount(db, actor, baseUrl, options);
+}
 
 export async function updateAccountStats(
-  account: { id: Uuid } | { uri: string }
+  db: PgDatabase<
+    PostgresJsQueryResultHKT,
+    typeof schema,
+    ExtractTablesWithRelations<typeof schema>
+  >,
+  account: { id: Uuid } | { iri: string },
 ): Promise<void> {
   const id =
     "id" in account
@@ -66,30 +292,243 @@ export async function updateAccountStats(
       : db
         .select({ id: schema.accounts.id })
         .from(schema.accounts)
-        .where(eq(schema.accounts.uri, account.uri));
-
+        .where(eq(schema.accounts.uri, account.iri));
   const followingCount = db
     .select({ cnt: count() })
     .from(schema.follows)
     .where(
-      eq(schema.follows.followerId, id),
+      and(
+        eq(schema.follows.followerId, id),
+        isNotNull(schema.follows.approved),
+      ),
     );
-
-  const followerCount = db
+  const followersCount = db
     .select({ cnt: count() })
     .from(schema.follows)
     .where(
-      eq(schema.follows.followingId, id),
+      and(
+        eq(schema.follows.followingId, id),
+        isNotNull(schema.follows.approved),
+      ),
     );
-
-  // TODO post count updates
+  const postsCount = db
+    .select({ cnt: count() })
+    .from(schema.posts)
+    .where(eq(schema.posts.accountId, id));
   await db
     .update(schema.accounts)
     .set({
-      followersCount: sql`${followerCount}`,
       followingCount: sql`${followingCount}`,
+      followersCount: sql`${followersCount}`,
+      postsCount: sql`${postsCount}`,
     })
     .where(
-      eq(schema.accounts.id, id),
+      and(
+        "id" in account
+          ? eq(schema.accounts.id, account.id)
+          : eq(schema.accounts.uri, account.iri),
+        inArray(
+          schema.accounts.id,
+          db.select({ id: schema.users.id }).from(schema.users),
+        ),
+      ),
+    );
+}
+
+export async function followAccount(
+  db: PgDatabase<
+    PostgresJsQueryResultHKT,
+    typeof schema,
+    ExtractTablesWithRelations<typeof schema>
+  >,
+  ctx: Context<unknown>,
+  follower: schema.Account & { user: schema.User | null },
+  following: schema.Account & { user: schema.User | null },
+  options: {
+    shares?: boolean;
+    notify?: boolean;
+    languages?: string[];
+  } = {},
+): Promise<schema.Follow | null> {
+  if (follower.user == null) {
+    throw new TypeError("Only local accounts can follow other accounts");
+  }
+  const result = await db
+    .insert(schema.follows)
+    .values({
+      uri: new URL(`#follows/${crypto.randomUUID()}`, follower.uri).href,
+      followingId: following.id,
+      followerId: follower.id,
+      shares: options.shares ?? true,
+      notify: options.notify ?? false,
+      approved:
+        following.user == null || following.protected ? null : new Date(),
+    } satisfies schema.NewFollow)
+    .onConflictDoNothing()
+    .returning();
+  if (result.length < 1) return null;
+  await updateAccountStats(db, follower);
+  await updateAccountStats(db, following);
+  const follow = result[0];
+  if (following.user == null) {
+    await ctx.sendActivity(
+      { username: follower.user.username },
+      [
+        {
+          id: new URL(following.uri),
+          inboxId: new URL(following.inboxUrl),
+        },
+      ],
+      new Follow({
+        id: new URL(follow.uri),
+        actor: new URL(follower.uri),
+        object: new URL(following.uri),
+      }),
+      { excludeBaseUris: [new URL(ctx.origin)] },
+    );
+  }
+  return follow;
+}
+
+export async function unfollowAccount(
+  db: PgDatabase<
+    PostgresJsQueryResultHKT,
+    typeof schema,
+    ExtractTablesWithRelations<typeof schema>
+  >,
+  ctx: Context<unknown>,
+  follower: schema.Account & { user: schema.User | null },
+  following: schema.Account & { user: schema.User | null },
+): Promise<schema.Follow | null> {
+  if (follower.user == null) {
+    throw new TypeError("Only local accounts can unfollow other accounts");
+  }
+  const result = await db
+    .delete(schema.follows)
+    .where(
+      and(
+        eq(schema.follows.followingId, following.id),
+        eq(schema.follows.followerId, follower.id),
+      ),
     )
+    .returning();
+  if (result.length < 1) return null;
+  await updateAccountStats(db, follower);
+  await updateAccountStats(db, following);
+  if (following.user == null) {
+    await ctx.sendActivity(
+      { username: follower.user.username },
+      [
+        {
+          id: new URL(following.uri),
+          inboxId: new URL(following.inboxUrl),
+        },
+      ],
+      new Undo({
+        id: new URL(`#unfollows/${crypto.randomUUID()}`, follower.uri),
+        actor: new URL(follower.uri),
+        object: new Follow({
+          id: new URL(result[0].uri),
+          actor: new URL(follower.uri),
+          object: new URL(following.uri),
+        }),
+      }),
+      { excludeBaseUris: [new URL(ctx.origin)] },
+    );
+  }
+  return result[0];
+}
+
+export async function removeFollower(
+  db: PgDatabase<
+    PostgresJsQueryResultHKT,
+    typeof schema,
+    ExtractTablesWithRelations<typeof schema>
+  >,
+  ctx: Context<unknown>,
+  following: schema.Account & { user: schema.User | null },
+  follower: schema.Account & { user: schema.User | null },
+): Promise<schema.Follow | null> {
+  if (following.user == null) {
+    throw new TypeError("Only local accounts can remove followers");
+  }
+  const result = await db
+    .delete(schema.follows)
+    .where(
+      and(
+        eq(schema.follows.followingId, following.id),
+        eq(schema.follows.followerId, follower.id),
+      ),
+    )
+    .returning();
+  if (result.length < 1) return null;
+  await ctx.sendActivity(
+    { username: following.user.username },
+    {
+      id: new URL(follower.uri),
+      inboxId: new URL(follower.inboxUrl),
+      endpoints:
+        follower.sharedInboxUrl == null
+          ? null
+          : {
+            sharedInbox: new URL(follower.sharedInboxUrl),
+          },
+    },
+    new Reject({
+      id: new URL(`#reject/${crypto.randomUUID()}`, following.uri),
+      actor: new URL(following.uri),
+      object: new Follow({
+        id: new URL(result[0].uri),
+        actor: new URL(follower.uri),
+        object: new URL(following.uri),
+      }),
+    }),
+    { excludeBaseUris: [new URL(ctx.origin)] },
+  );
+  return result[0];
+}
+
+export async function blockAccount(
+  db: PgDatabase<
+    PostgresJsQueryResultHKT,
+    typeof schema,
+    ExtractTablesWithRelations<typeof schema>
+  >,
+  ctx: Context<unknown>,
+  blocker: schema.User & { account: schema.Account },
+  blockee: schema.Account & { user: schema.User | null },
+): Promise<schema.Block | null> {
+  const result = await db
+    .insert(schema.blocks)
+    .values({
+      accountId: blocker.id,
+      blockedAccountId: blockee.id,
+    })
+    .returning();
+  if (result.length < 1) return null;
+  if (blockee.user == null) {
+    await unfollowAccount(
+      db,
+      ctx,
+      { ...blocker.account, user: blocker },
+      blockee,
+    );
+    await removeFollower(
+      db,
+      ctx,
+      { ...blocker.account, user: blocker },
+      blockee,
+    );
+    await ctx.sendActivity(
+      { username: blocker.username },
+      { id: new URL(blockee.uri), inboxId: new URL(blockee.inboxUrl) },
+      new Block({
+        id: new URL(`#block/${blockee.id}`, blocker.account.uri),
+        actor: new URL(blocker.account.uri),
+        object: new URL(blockee.uri),
+      }),
+      { excludeBaseUris: [new URL(ctx.origin)] },
+    );
+  }
+  return result[0];
 }
