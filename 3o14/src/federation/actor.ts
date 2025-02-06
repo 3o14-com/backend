@@ -1,5 +1,6 @@
 import {
   Endpoints,
+  Hashtag,
   Image,
   Like,
   Person,
@@ -30,7 +31,6 @@ federation
     });
     if (user == null) return null;
     const account = user.account;
-    // const cls = getActorClassByTypeName(account.type);
     return new Person({
       id: new URL(account.uri),
       name: account.name,
@@ -330,5 +330,26 @@ federation.setFeaturedDispatcher(
         .filter((p) => p.visibility === "public" || p.visibility === "unlisted")
         .map((p) => toObject(p, ctx)),
     };
+  },
+);
+
+federation.setFeaturedTagsDispatcher(
+  "/@{identifier}/tags",
+  async (ctx, identifier) => {
+    const user = await db.query.users.findFirst({
+      where: eq(users.username, identifier),
+      with: {
+        account: { with: { featuredTags: true } }
+      },
+    });
+    if (user == null) return null;
+    const items = user.account.featuredTags.map(
+      (tag) =>
+        new Hashtag({
+          name: `#${tag.name}`,
+          href: new URL(`/tags/${tag.name}?handle=${user.username}`, ctx.url),
+        }),
+    );
+    return { items };
   },
 );
