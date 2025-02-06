@@ -2,7 +2,8 @@
   "type": "module",
   "version": "0.0.1",
   "dependencies": {
-    "@fedify/fedify": "^1.3.5",
+    "@aws-sdk/credential-providers": "^3.742.0",
+    "@fedify/fedify": "^1.4.0",
     "@fedify/postgres": "^0.2.0",
     "@hexagon/base64": "^2.0.4",
     "@hono/zod-validator": "^0.4.2",
@@ -10,11 +11,16 @@
     "@tailwindcss/cli": "^4.0.0",
     "argon2": "^0.41.1",
     "clsx": "^2.1.1",
-    "drizzle-orm": "^0.38.4",
     "drizzle-kit": "^0.30.2",
+    "drizzle-orm": "^0.38.4",
+    "es-toolkit": "",
+    "fluent-ffmpeg": "^2.1.3",
+    "flydrive": "^1.1.0",
     "hono": "^4.6.19",
     "pg": "^8.13.1",
     "postgres": "^3.4.5",
+    "semver": "^7.7.1",
+    "sharp": "^0.33.5",
     "tailwindcss": "^4.0.0",
     "uuidv7-js": "^1.1.4",
     "x-forwarded-fetch": "^0.2.0",
@@ -23,10 +29,11 @@
   "devDependencies": {
     "@biomejs/biome": "^1.8.3",
     "@types/bun": "^1.1.6",
+    "@types/fluent-ffmpeg": "^2.1.27",
     "@types/pg": "^8.11.10",
+    "@types/semver": "^7.5.8",
     "autoprefixer": "^10.4.20",
     "daisyui": "^5.0.0-beta.2",
-    "drizzle-kit": "^0.30.2",
     "postcss": "^8.5.1",
     "tsx": "^4.19.2"
   },
@@ -39,6 +46,7 @@
   },
   "trustedDependencies": [
     "@parcel/watcher",
-    "argon2"
+    "argon2",
+    "sharp"
   ]
 }
