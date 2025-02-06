@@ -5,7 +5,7 @@ import { RegisterForm, type RegisterFormErrors } from "../components/RegisterFor
 import { z } from "zod";
 import db from "../db/db";
 import { eq } from "drizzle-orm";
-import { accounts, users } from "../db/schema";
+import { accounts, instances, users } from "../db/schema";
 import { LoginForm, type LoginFormErrors } from "../components/LoginForm";
 import { hash, verify } from "argon2";
 import { sign } from "hono/jwt";
@@ -122,19 +122,30 @@ auth.post("/register", async (c) => {
           passwordHash,
         })
 
+        await tx
+          .insert(instances)
+          .values({
+            host: fedCtx.host,
+            software: "3o14",
+            softwareVersion: null,
+          })
+          .onConflictDoNothing();
+
         await tx.insert(accounts).values({
           id: accountId,
           userId,
           uri: fedCtx.getActorUri(username).href,
-          // handle: `@${username}@${url.host}`,
-          handle: `@${username}@3o14.com`, // TODO WARN yea fix this
-          preferredName: preferredName,
-          inboxUrl: fedCtx.getInboxUri(username).href,
-          sharedInboxUrl: fedCtx.getInboxUri().href,
-          // outboxUrl: "akshdfkfash",//fedCtx.getOutboxUri(username).href, // TODO proper outbox after posts
-          followersUrl: fedCtx.getFollowersUri(username).href,
-          followingUrl: fedCtx.getFollowingUri(username).href,
+          // handle: `@${username}@${fedCtx.host}`,
+          instanceHost: fedCtx.host,
+          name: preferredName,
+          handle: `@${username}@3o14.com`,
+          // bio,
           url: fedCtx.getActorUri(username).href,
+          protected: false,
+          inboxUrl: fedCtx.getInboxUri(username).href,
+          followersUrl: fedCtx.getFollowersUri(username).href,
+          sharedInboxUrl: fedCtx.getInboxUri().href,
+          featuredUrl: fedCtx.getFeaturedUri(username).href,
           rsaPublicKey: await exportJwk(rsaKeyPairs.publicKey),
           rsaPrivateKey: await exportJwk(rsaKeyPairs.privateKey),
           ed25519PublicKey: await exportJwk(ed25519KeyPairs.publicKey),
