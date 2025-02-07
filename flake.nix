@@ -21,7 +21,6 @@
           packages = with pkgs; [
             bun
             postgresql
-            dbgate
             watchman
             tailwindcss-language-server
             hoppscotch
