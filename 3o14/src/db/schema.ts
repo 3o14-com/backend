@@ -551,7 +551,7 @@ export const bookmarks = pgTable(
       .$type<Uuid>()
       .notNull()
       .references(() => posts.id, { onDelete: "cascade" }),
-    userId: uuid("user_id")
+    accountId: uuid("account_id")
       .$type<Uuid>()
       .notNull()
       .references(() => accounts.id, { onDelete: "cascade" }),
@@ -560,8 +560,8 @@ export const bookmarks = pgTable(
       .default(currentTimestamp),
   },
   (table) => [
-    primaryKey({ columns: [table.postId, table.userId] }),
-    index().on(table.postId, table.userId),
+    primaryKey({ columns: [table.postId, table.accountId] }),
+    index().on(table.postId, table.accountId),
   ],
 );
 
@@ -574,7 +574,7 @@ export const bookmarkRelations = relations(bookmarks, ({ one }) => ({
     references: [posts.id],
   }),
   accounts: one(accounts, {
-    fields: [bookmarks.userId],
+    fields: [bookmarks.accountId],
     references: [accounts.id],
   }),
 }));

@@ -1,6 +1,9 @@
 import { Hono } from "hono";
 import { Layout } from "../components/Layout";
-import { RegisterForm, type RegisterFormErrors } from "../components/RegisterForm";
+import {
+  RegisterForm,
+  type RegisterFormErrors,
+} from "../components/RegisterForm";
 
 import { z } from "zod";
 import db from "../db/db";
@@ -16,25 +19,25 @@ import { exportJwk, generateCryptoKeyPair } from "@fedify/fedify";
 const RegisterBodySchema = z.object({
   email: z
     .string()
-    .email('Please enter a valid email address')
-    .max(254, 'Email must not exceed 254 characters'),
+    .email("Please enter a valid email address")
+    .max(254, "Email must not exceed 254 characters"),
   username: z
     .string()
-    .min(1, 'Username is required')
-    .max(254, 'Username must not exceed 254 characters'),
+    .min(1, "Username is required")
+    .max(254, "Username must not exceed 254 characters"),
   preferredName: z
     .string()
-    .min(1, 'preferred name is required'),
+    .min(1, "preferred name is required"),
   password: z
     .string()
-    .min(8, 'Password must be at least 8 characters long'),
+    .min(8, "Password must be at least 8 characters long"),
   passwordConfirm: z
-    .string()
+    .string(),
 })
   .refine((data) => data.password === data.passwordConfirm, {
     path: ["passwordConfirm"],
     message: "Both passwords must be same",
-  })
+  });
 
 const auth = new Hono();
 
@@ -55,7 +58,7 @@ auth.get("/register", (c) => {
           />
         </div>
       </div>
-    </Layout>
+    </Layout>,
   );
 });
 
@@ -73,7 +76,7 @@ auth.post("/register", async (c) => {
     });
     if (existingEmail) {
       const errors: RegisterFormErrors = {};
-      errors['email'] = { message: "email already in use" };
+      errors["email"] = { message: "email already in use" };
       return c.html(
         <RegisterForm
           email={email}
@@ -81,17 +84,17 @@ auth.post("/register", async (c) => {
           password={password}
           confirmPassword={password}
           errors={errors}
-        />
+        />,
       );
     }
 
     const existingUsername = await db.query.users.findFirst({
       where: eq(users.username, username),
-    })
+    });
 
     if (existingUsername) {
       const errors: RegisterFormErrors = {};
-      errors['username'] = { message: "username is not available" };
+      errors["username"] = { message: "username is not available" };
       return c.html(
         <RegisterForm
           email={email}
@@ -100,7 +103,7 @@ auth.post("/register", async (c) => {
           preferredName={preferredName}
           confirmPassword={password}
           errors={errors}
-        />
+        />,
       );
     }
 
@@ -120,7 +123,7 @@ auth.post("/register", async (c) => {
           email,
           username,
           passwordHash,
-        })
+        });
 
         await tx
           .insert(instances)
@@ -150,8 +153,8 @@ auth.post("/register", async (c) => {
           rsaPrivateKey: await exportJwk(rsaKeyPairs.privateKey),
           ed25519PublicKey: await exportJwk(ed25519KeyPairs.publicKey),
           ed25519PrivateKey: await exportJwk(ed25519KeyPairs.privateKey),
-        })
-      })
+        });
+      });
       return c.redirect("/auth/login");
     } catch (error) {
       console.error(error);
@@ -169,12 +172,10 @@ auth.post("/register", async (c) => {
         password={data.password}
         confirmPassword={data.confirmPassword}
         errors={errors}
-      />
+      />,
     );
   }
-})
-
-
+});
 
 auth.get("/login", async (c) => {
   const next = c.req.query("next");
@@ -188,23 +189,22 @@ auth.get("/login", async (c) => {
           </div>
         </div>
       </div>
-    </Layout>
+    </Layout>,
   );
 });
 
 const LoginBodySchema = z.object({
   email: z
     .string()
-    .email('Please enter a valid email address'),
+    .email("Please enter a valid email address"),
   password: z
-    .string()
+    .string(),
 });
 
 auth.post("/login", async (c) => {
   const data = await c.req.parseBody();
   const result = LoginBodySchema.safeParse(data);
-  const next = data['next']?.toString();
-  console.log("next: ", next);
+  const next = data["next"]?.toString();
   if (result.success) {
     const email = result.data.email;
     const password = result.data.password;
@@ -215,44 +215,46 @@ auth.post("/login", async (c) => {
 
     if (user == null || !(await verify(user.passwordHash, password))) {
       const errors: LoginFormErrors = {};
-      errors['email'] = { message: "Invalid email or password" };
-      c.res.headers.append('HX-Retarget', 'closest div');
-      c.res.headers.append('HX-Push-Url', 'false');
+      errors["email"] = { message: "Invalid email or password" };
+      c.res.headers.append("HX-Retarget", "closest div");
+      c.res.headers.append("HX-Push-Url", "false");
       return c.html(
         <LoginForm
           next={next}
           email={email}
           errors={errors}
         />,
-      )
+      );
     }
 
-    const secret_key = Bun.env['SECRET_KEY'];
+    const secret_key = Bun.env["SECRET_KEY"];
     if (secret_key == undefined) throw new Error("SECRET_KEY must be defined");
     const tokenLifespan = 60 * 60 * 24 * 1; // 1 day
     const token = await sign({
       userId: user.id,
       exp: Math.floor(Date.now() / 1000) + tokenLifespan, // 1 day
-    },
-      secret_key);
+    }, secret_key);
 
-    c.header("Set-Cookie", `token=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${tokenLifespan}`);
+    c.header(
+      "Set-Cookie",
+      `token=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${tokenLifespan}`,
+    );
     return c.redirect(next ?? "/profile");
   } else {
     const errors: LoginFormErrors = {};
     for (let error of result.error.errors) {
       errors[error.path[0]] = { message: error.message };
     }
-    c.res.headers.append('HX-Retarget', 'closest div');
-    c.res.headers.append('HX-Push-Url', 'false');
+    c.res.headers.append("HX-Retarget", "closest div");
+    c.res.headers.append("HX-Push-Url", "false");
     return c.html(
       <LoginForm
         next={next}
         email={data.email}
         errors={errors}
-      />
+      />,
     );
   }
-})
+});
 
 export default auth;

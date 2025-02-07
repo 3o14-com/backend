@@ -1,4 +1,4 @@
-import { Block, Undo, isActor, lookupObject } from "@fedify/fedify";
+import { Block, isActor, lookupObject, Undo } from "@fedify/fedify";
 import * as vocab from "@fedify/fedify/vocab";
 import { zValidator } from "@hono/zod-validator";
 import {
@@ -24,26 +24,27 @@ import { z } from "zod";
 import { db } from "../../db/db";
 import {
   serializeAccount,
-  serializeUser,
   serializeRelationship,
+  serializeUser,
 } from "../../entities/accounts";
 import { serializeList } from "../../entities/list";
 import { getPostRelations, serializePost } from "../../entities/status";
 import { federation } from "../../federation";
 import {
-  REMOTE_ACTOR_FETCH_POSTS,
   blockAccount,
   followAccount,
   persistAccount,
   persistAccountPosts,
+  REMOTE_ACTOR_FETCH_POSTS,
   unfollowAccount,
 } from "../../federation/account";
-import { type Variables, scopeRequired, tokenRequired } from "../../middlewares/oauth";
+import {
+  scopeRequired,
+  tokenRequired,
+  type Variables,
+} from "../../middlewares/oauth";
 import {
   type Account,
-  type User,
-  type NewMute,
-  users,
   accounts,
   blocks,
   follows,
@@ -52,11 +53,14 @@ import {
   media,
   mentions,
   mutes,
+  type NewMute,
   pinnedPosts,
   posts,
+  type User,
+  users,
 } from "../../db/schema";
 import { disk, getAssetUrl } from "../../utils/storage";
-import { type Uuid, isUuid, uuid } from "../../utils/uuid";
+import { isUuid, type Uuid, uuid } from "../../utils/uuid";
 import { timelineQuerySchema } from "./timelines";
 
 const app = new Hono<{ Variables: Variables }>();
@@ -157,12 +161,12 @@ app.patch(
         name,
         avatarurl,
         coverurl,
-        protected:
-          form.locked == null ? account.protected : form.locked === "true",
-        sensitive:
-          form["source[sensitive]"] == null
-            ? account.sensitive
-            : form["source[sensitive]"] === "true",
+        protected: form.locked == null
+          ? account.protected
+          : form.locked === "true",
+        sensitive: form["source[sensitive]"] == null
+          ? account.sensitive
+          : form["source[sensitive]"] === "true",
       })
       .where(eq(accounts.id, user.id))
       .returning();
@@ -182,12 +186,11 @@ app.patch(
       }),
       { preferSharedInbox: true, excludeBaseUris: [new URL(fedCtx.url)] },
     );
-    const successor =
-      updatedAccounts[0].successorId == null
-        ? null
-        : ((await db.query.accounts.findFirst({
-          where: eq(accounts.id, updatedAccounts[0].successorId),
-        })) ?? null);
+    const successor = updatedAccounts[0].successorId == null
+      ? null
+      : ((await db.query.accounts.findFirst({
+        where: eq(accounts.id, updatedAccounts[0].successorId),
+      })) ?? null);
     return c.json(
       serializeUser(
         {
@@ -213,29 +216,28 @@ app.get(
       );
     }
     const ids = (c.req.queries("id[]") ?? []).filter(isUuid);
-    const accountList =
-      ids.length > 0
-        ? await db.query.accounts.findMany({
-          where: inArray(accounts.id, ids),
-          with: {
-            following: {
-              where: eq(follows.followingId, user.id),
-            },
-            followers: {
-              where: eq(follows.followerId, user.id),
-            },
-            mutedBy: {
-              where: eq(mutes.accountId, user.id),
-            },
-            blocks: {
-              where: eq(blocks.blockedAccountId, user.id),
-            },
-            blockedBy: {
-              where: eq(blocks.accountId, user.id),
-            },
+    const accountList = ids.length > 0
+      ? await db.query.accounts.findMany({
+        where: inArray(accounts.id, ids),
+        with: {
+          following: {
+            where: eq(follows.followingId, user.id),
           },
-        })
-        : [];
+          followers: {
+            where: eq(follows.followerId, user.id),
+          },
+          mutedBy: {
+            where: eq(mutes.accountId, user.id),
+          },
+          blocks: {
+            where: eq(blocks.blockedAccountId, user.id),
+          },
+          blockedBy: {
+            where: eq(blocks.accountId, user.id),
+          },
+        },
+      })
+      : [];
     accountList.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
     return c.json(
       accountList.map((account) => serializeRelationship(account, user)),
@@ -261,8 +263,7 @@ app.get(
         user: User | null;
         successor: Account | null;
       })
-      | null =
-      (await db.query.accounts.findFirst({
+      | null = (await db.query.accounts.findFirst({
         where: eq(
           accounts.handle,
           acct.includes("@")
@@ -276,15 +277,12 @@ app.get(
         return c.json({ error: "Record not found" }, 404);
       }
       const fedCtx = federation.createContext(c.req.raw, undefined);
-      const options =
-        user == null
-          ? fedCtx
-          : {
-            contextLoader: fedCtx.contextLoader,
-            documentLoader: await fedCtx.getDocumentLoader({
-              username: user.username,
-            }),
-          };
+      const options = user == null ? fedCtx : {
+        contextLoader: fedCtx.contextLoader,
+        documentLoader: await fedCtx.getDocumentLoader({
+          username: user.username,
+        }),
+      };
       const actor = await lookupObject(acct, options);
       if (!isActor(actor)) return c.json({ error: "Record not found" }, 404);
       const loaded = await persistAccount(db, actor, c.req.url, options);
@@ -292,10 +290,9 @@ app.get(
         account = {
           ...loaded,
           user: null,
-          successor:
-            (await db.query.accounts.findFirst({
-              where: eq(accounts.successorId, loaded.id),
-            })) ?? null,
+          successor: (await db.query.accounts.findFirst({
+            where: eq(accounts.successorId, loaded.id),
+          })) ?? null,
         };
       }
     }
@@ -377,7 +374,7 @@ app.get(
       accountList.map((a) =>
         a.user == null
           ? serializeAccount(a, c.req.url)
-          : serializeUser({ ...a.user, account: a }, c.req.url),
+          : serializeUser({ ...a.user, account: a }, c.req.url)
       ),
     );
   },
@@ -425,7 +422,7 @@ app.get(
         accounts: accountList.map((a) =>
           a.user == null
             ? serializeAccount(a, c.req.url)
-            : serializeUser({ ...a.user, account: a }, c.req.url),
+            : serializeUser({ ...a.user, account: a }, c.req.url)
         ),
       });
     }
@@ -475,7 +472,6 @@ app.get(
         422,
       );
     }
-    console.log("test1");
     const account = await db.query.accounts.findFirst({
       where: eq(accounts.id, id),
       with: {
@@ -485,12 +481,12 @@ app.get(
         },
       },
     });
-    console.log("test2");
     if (account == null) return c.json({ error: "Record not found" }, 404);
-    if (account.blocks.some((b) => b.blockedAccountId === tokenUser.account.id)) {
+    if (
+      account.blocks.some((b) => b.blockedAccountId === tokenUser.account.id)
+    ) {
       return c.json([]);
     }
-    console.log("test3");
     const [{ cnt }] = await db
       .select({ cnt: count() })
       .from(posts)
@@ -511,16 +507,17 @@ app.get(
         },
       );
     }
-    console.log("test4");
     const query = c.req.valid("query");
     const limit = query.limit ?? 20;
     const following = await db
       .select({ id: follows.followingId })
       .from(follows)
       .where(
-        and(eq(follows.followerId, tokenUser.account.id), eq(follows.followingId, id)),
+        and(
+          eq(follows.followerId, tokenUser.account.id),
+          eq(follows.followingId, id),
+        ),
       );
-    console.log("test5");
     const postList = await db.query.posts.findMany({
       where: and(
         eq(posts.accountId, id),
@@ -616,17 +613,15 @@ app.get(
         query.max_id == null ? undefined : lt(posts.id, query.max_id),
         query.min_id == null ? undefined : gt(posts.id, query.min_id),
       ),
-      with: getPostRelations(tokenUser.id),
+      with: getPostRelations(tokenUser.account.id),
       orderBy: [desc(posts.published), desc(posts.id)],
       limit: limit + 1,
     });
-    console.log("test6");
     let next: URL | undefined;
     if (postList.length > limit) {
       next = new URL(c.req.url);
       next.searchParams.set("max_id", postList[limit].id);
     }
-    console.log("test7");
     return c.json(
       postList
         .slice(0, limit)
@@ -753,7 +748,7 @@ app.get("/:id/followers", async (c) => {
         : serializeUser(
           { ...f.follower.user, account: f.follower },
           c.req.url,
-        ),
+        )
     ),
   );
 });
@@ -773,7 +768,7 @@ app.get("/:id/following", async (c) => {
         : serializeUser(
           { ...f.following.user, account: f.following },
           c.req.url,
-        ),
+        )
     ),
   );
 });
@@ -892,21 +887,20 @@ app.post(
       },
     });
     if (account == null) return c.json({ error: "Record not found" }, 404);
-    const durationStr =
-      duration <= 0
-        ? null
-        : new Date(duration * 1000)
-          .toISOString()
-          .replace(/^[^T]+T|\.[^Z]+Z?$/g, "");
+    const durationStr = duration <= 0 ? null : new Date(duration * 1000)
+      .toISOString()
+      .replace(/^[^T]+T|\.[^Z]+Z?$/g, "");
     await db
       .insert(mutes)
-      .values({
-        id: crypto.randomUUID(),
-        accountId: user.account.id,
-        mutedAccountId: account.id,
-        notifications,
-        duration: durationStr,
-      } satisfies NewMute)
+      .values(
+        {
+          id: crypto.randomUUID(),
+          accountId: user.account.id,
+          mutedAccountId: account.id,
+          notifications,
+          duration: durationStr,
+        } satisfies NewMute,
+      )
       .onConflictDoUpdate({
         target: [mutes.accountId, mutes.mutedAccountId],
         set: {
@@ -956,7 +950,9 @@ app.post(
     }
     await db
       .delete(mutes)
-      .where(and(eq(mutes.accountId, user.account.id), eq(mutes.mutedAccountId, id)));
+      .where(
+        and(eq(mutes.accountId, user.account.id), eq(mutes.mutedAccountId, id)),
+      );
     const account = await db.query.accounts.findFirst({
       where: eq(accounts.id, id),
       with: {
@@ -1050,7 +1046,10 @@ app.post(
     await db
       .delete(blocks)
       .where(
-        and(eq(blocks.accountId, user.account.id), eq(blocks.blockedAccountId, id)),
+        and(
+          eq(blocks.accountId, user.account.id),
+          eq(blocks.blockedAccountId, id),
+        ),
       );
     if (acct.user == null) {
       const fedCtx = federation.createContext(c.req.raw, undefined);

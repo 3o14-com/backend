@@ -1,13 +1,17 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { applications, type NewApplication, type Scope, scopeEnum } from "../../db/schema";
+import {
+  applications,
+  type NewApplication,
+  type Scope,
+  scopeEnum,
+} from "../../db/schema";
 import { getLogger } from "@logtape/logtape";
 import { base64 } from "@hexagon/base64";
 import db from "../../db/db";
 import { tokenRequired, type Variables } from "../../middlewares/oauth";
 
 const app = new Hono<{ Variables: Variables }>();
-
 
 const logger = getLogger(["hollo", "api", "v1", "apps"]);
 
@@ -87,18 +91,19 @@ app.post("/", async (c) => {
   );
   const apps = await db
     .insert(applications)
-    .values({
-      id: crypto.randomUUID(),
-      name: form.client_name ?? "",
-      redirectUris: form.redirect_uris ?? [],
-      scopes: form.scopes ?? (["read"] satisfies Scope[]),
-      website: form.website,
-      clientId,
-      clientSecret,
-    } satisfies NewApplication)
+    .values(
+      {
+        id: crypto.randomUUID(),
+        name: form.client_name ?? "",
+        redirectUris: form.redirect_uris ?? [],
+        scopes: form.scopes ?? (["read"] satisfies Scope[]),
+        website: form.website,
+        clientId,
+        clientSecret,
+      } satisfies NewApplication,
+    )
     .returning();
   const app = apps[0];
-  console.log("test")
   const result = {
     id: app.id,
     name: app.name,
@@ -112,7 +117,6 @@ app.post("/", async (c) => {
   logger.debug("Created application: {app}", { app: result });
   return c.json(result);
 });
-
 
 app.get("/verify_credentials", tokenRequired, async (c) => {
   const token = c.get("token");

@@ -1,22 +1,22 @@
 import { eq } from "drizzle-orm";
 import {
   type Account,
-  type User,
   type Application,
   type Bookmark,
+  bookmarks,
   type Like,
+  likes,
   type Medium,
   type Mention,
   type PinnedPost,
   type Poll,
   type PollOption,
-  type PollVote,
-  type Post,
-  bookmarks,
-  likes,
   pollOptions,
+  type PollVote,
   pollVotes,
+  type Post,
   posts,
+  type User,
 } from "../db/schema";
 import type { Uuid } from "../utils/uuid";
 import { serializeAccount } from "./accounts";
@@ -49,9 +49,8 @@ export function getPostRelations(userId: Uuid) {
               with: { account: { with: { user: true, successor: true } } },
             },
             likes: { where: eq(likes.accountId, userId) },
-            reactions: { with: { account: { with: { successor: true } } } },
             shares: { where: eq(posts.accountId, userId) },
-            bookmarks: { where: eq(bookmarks.userId, userId) },
+            bookmarks: { where: eq(bookmarks.accountId, userId) },
             pin: true,
           },
         },
@@ -66,9 +65,8 @@ export function getPostRelations(userId: Uuid) {
           with: { account: { with: { user: true, successor: true } } },
         },
         likes: { where: eq(likes.accountId, userId) },
-        reactions: { with: { account: { with: { successor: true } } } },
         shares: { where: eq(posts.accountId, userId) },
-        bookmarks: { where: eq(bookmarks.userId, userId) },
+        bookmarks: { where: eq(bookmarks.accountId, userId) },
         pin: true,
       },
     },
@@ -88,9 +86,8 @@ export function getPostRelations(userId: Uuid) {
           with: { account: { with: { user: true, successor: true } } },
         },
         likes: { where: eq(likes.accountId, userId) },
-        reactions: { with: { account: { with: { successor: true } } } },
         shares: { where: eq(posts.accountId, userId) },
-        bookmarks: { where: eq(bookmarks.userId, userId) },
+        bookmarks: { where: eq(bookmarks.accountId, userId) },
         pin: true,
       },
     },
@@ -103,9 +100,8 @@ export function getPostRelations(userId: Uuid) {
     },
     mentions: { with: { account: { with: { user: true, successor: true } } } },
     likes: { where: eq(likes.accountId, userId) },
-    reactions: { with: { account: { with: { successor: true } } } },
     shares: { where: eq(posts.accountId, userId) },
-    bookmarks: { where: eq(bookmarks.userId, userId) },
+    bookmarks: { where: eq(bookmarks.accountId, userId) },
     pin: true,
     replies: true,
   } as const;
@@ -117,19 +113,33 @@ export function serializePost(
     application: Application | null;
     replyTarget: Post | null;
     sharing:
-    | (Post & {
-      account: Account & { successor: Account | null };
-      application: Application | null;
-      replyTarget: Post | null;
-      quoteTarget:
       | (Post & {
         account: Account & { successor: Account | null };
         application: Application | null;
         replyTarget: Post | null;
+        quoteTarget:
+          | (Post & {
+            account: Account & { successor: Account | null };
+            application: Application | null;
+            replyTarget: Post | null;
+            media: Medium[];
+            poll:
+              | (Poll & { options: PollOption[]; votes: PollVote[] })
+              | null;
+            mentions: (Mention & {
+              account: Account & {
+                user: User | null;
+                successor: Account | null;
+              };
+            })[];
+            likes: Like[];
+            shares: Post[];
+            bookmarks: Bookmark[];
+            pin: PinnedPost | null;
+          })
+          | null;
         media: Medium[];
-        poll:
-        | (Poll & { options: PollOption[]; votes: PollVote[] })
-        | null;
+        poll: (Poll & { options: PollOption[]; votes: PollVote[] }) | null;
         mentions: (Mention & {
           account: Account & {
             user: User | null;
@@ -142,39 +152,25 @@ export function serializePost(
         pin: PinnedPost | null;
       })
       | null;
-      media: Medium[];
-      poll: (Poll & { options: PollOption[]; votes: PollVote[] }) | null;
-      mentions: (Mention & {
-        account: Account & {
-          user: User | null;
-          successor: Account | null;
-        };
-      })[];
-      likes: Like[];
-      shares: Post[];
-      bookmarks: Bookmark[];
-      pin: PinnedPost | null;
-    })
-    | null;
     quoteTarget:
-    | (Post & {
-      account: Account & { successor: Account | null };
-      application: Application | null;
-      replyTarget: Post | null;
-      media: Medium[];
-      poll: (Poll & { options: PollOption[]; votes: PollVote[] }) | null;
-      mentions: (Mention & {
-        account: Account & {
-          user: User | null;
-          successor: Account | null;
-        };
-      })[];
-      likes: Like[];
-      shares: Post[];
-      bookmarks: Bookmark[];
-      pin: PinnedPost | null;
-    })
-    | null;
+      | (Post & {
+        account: Account & { successor: Account | null };
+        application: Application | null;
+        replyTarget: Post | null;
+        media: Medium[];
+        poll: (Poll & { options: PollOption[]; votes: PollVote[] }) | null;
+        mentions: (Mention & {
+          account: Account & {
+            user: User | null;
+            successor: Account | null;
+          };
+        })[];
+        likes: Like[];
+        shares: Post[];
+        bookmarks: Bookmark[];
+        pin: PinnedPost | null;
+      })
+      | null;
     media: Medium[];
     poll: (Poll & { options: PollOption[]; votes: PollVote[] }) | null;
     mentions: (Mention & {
@@ -214,51 +210,40 @@ export function serializePost(
     ),
     muted: false, // TODO
     bookmarked: post.bookmarks.some(
-      (bookmark) => bookmark.userId === currentUser.id,
+      (bookmark) => bookmark.accountId === currentUser.id,
     ),
     pinned: post.pin != null && post.pin.accountId === currentUser.id,
     content: post.contentHtml ?? "",
-    reblog:
-      post.sharing == null
-        ? null
-        : serializePost(
-          { ...post.sharing, sharing: null },
-          currentUser,
-          baseUrl,
-        ),
+    reblog: post.sharing == null ? null : serializePost(
+      { ...post.sharing, sharing: null },
+      currentUser,
+      baseUrl,
+    ),
     quote_id: post.quoteTargetId,
-    quote:
-      post.quoteTarget == null
-        ? null
-        : serializePost(
-          { ...post.quoteTarget, quoteTarget: null, sharing: null },
-          currentUser,
-          baseUrl,
-        ),
-    application:
-      post.application == null
-        ? null
-        : {
-          name: post.application.name,
-          website: post.application.website,
-        },
+    quote: post.quoteTarget == null ? null : serializePost(
+      { ...post.quoteTarget, quoteTarget: null, sharing: null },
+      currentUser,
+      baseUrl,
+    ),
+    application: post.application == null ? null : {
+      name: post.application.name,
+      website: post.application.website,
+    },
     account: serializeAccount(post.account, baseUrl),
     media_attachments: post.media.map(serializeMedium),
     mentions: post.mentions.map((mention) => ({
       id: mention.accountId,
       username: mention.account.handle.replaceAll(/(?:^@)|(?:@[^@]+$)/g, ""),
       url: mention.account.url,
-      acct:
-        mention.account.user == null
-          ? mention.account.handle.replace(/^@/, "")
-          : mention.account.handle.replaceAll(/(?:^@)|(?:@[^@]+$)/g, ""),
+      acct: mention.account.user == null
+        ? mention.account.handle.replace(/^@/, "")
+        : mention.account.handle.replaceAll(/(?:^@)|(?:@[^@]+$)/g, ""),
     })),
     tags: Object.entries(post.tags).map(([name, url]) => ({
       name: name.toLowerCase().replace(/^#/, ""),
       url,
     })),
-    poll:
-      post.poll == null ? null : serializePoll(post.poll, currentUser),
+    poll: post.poll == null ? null : serializePoll(post.poll, currentUser),
     filtered: null,
   };
 }
