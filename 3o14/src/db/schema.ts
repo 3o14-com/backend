@@ -826,7 +826,7 @@ export const timelinePosts = pgTable(
     accountId: uuid("account_id")
       .$type<Uuid>()
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => accounts.id, { onDelete: "cascade" }),
     postId: uuid("post_id")
       .$type<Uuid>()
       .notNull()
@@ -842,9 +842,9 @@ export type TimelinePost = typeof timelinePosts.$inferSelect;
 export type NewTimelinePost = typeof timelinePosts.$inferInsert;
 
 export const timelinePostRelations = relations(timelinePosts, ({ one }) => ({
-  account: one(users, {
+  account: one(accounts, {
     fields: [timelinePosts.accountId],
-    references: [users.id],
+    references: [accounts.id],
   }),
   post: one(posts, {
     fields: [timelinePosts.postId],
