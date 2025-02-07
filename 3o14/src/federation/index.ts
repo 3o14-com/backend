@@ -1,5 +1,7 @@
 import { Activity, Follow, Undo } from "@fedify/fedify";
 import "./actor";
+import "./nodeinfo";
+import "./objects";
 
 import { getLogger } from "@logtape/logtape";
 import { federation } from "./federation";

@@ -12,7 +12,6 @@ import type { PgDatabase } from "drizzle-orm/pg-core";
 import type { PostgresJsQueryResultHKT } from "drizzle-orm/postgres-js";
 import type {
   Account,
-  User,
   Block,
   Follow,
   List,
@@ -60,23 +59,21 @@ export function shouldExcludePostFromTimeline(
     mentions: Mention[];
     replyTarget: Post | null;
   },
-  user: User & {
-    account: Account & {
-      following: Follow[];
-      blocks: Block[];
-      blockedBy: Block[];
-      mutes: Mute[];
-    };
+  account: Account & {
+    following: Follow[];
+    blocks: Block[];
+    blockedBy: Block[];
+    mutes: Mute[];
   },
 ): boolean {
   if (
-    !isPostVisibleToAccount(post, user.account) ||
+    !isPostVisibleToAccount(post, account) ||
     (post.sharing != null &&
-      !isPostVisibleToAccount(post.sharing, user.account))
+      !isPostVisibleToAccount(post.sharing, account))
   ) {
     return true;
   }
-  for (const block of user.account.blocks) {
+  for (const block of account.blocks) {
     if (
       block.accountId === post.accountId ||
       block.accountId === post.sharing?.accountId
@@ -84,7 +81,7 @@ export function shouldExcludePostFromTimeline(
       return true;
     }
   }
-  for (const mute of user.account.mutes) {
+  for (const mute of account.mutes) {
     if (mute.duration != null) {
       const created = Temporal.Instant.from(mute.created.toISOString());
       const duration = Temporal.Duration.from(mute.duration);
@@ -109,36 +106,34 @@ export function shouldIncludePostInTimeline(
     mentions: Mention[];
     replyTarget: Post | null;
   },
-  user: User & {
-    account: Account & {
-      following: Follow[];
-      blocks: Block[];
-      blockedBy: Block[];
-      mutes: Mute[];
-    };
+  account: Account & {
+    following: Follow[];
+    blocks: Block[];
+    blockedBy: Block[];
+    mutes: Mute[];
   },
 ): boolean {
-  if (post.accountId === user.id) return true;
-  if (shouldExcludePostFromTimeline(post, user)) return false;
+  if (post.accountId === account.id) return true;
+  if (shouldExcludePostFromTimeline(post, account)) return false;
   for (const mention of post.mentions) {
-    if (mention.accountId === user.id) return true;
+    if (mention.accountId === account.id) return true;
   }
   for (const mention of post.sharing?.mentions || []) {
-    if (mention.accountId === user.id) return true;
+    if (mention.accountId === account.id) return true;
   }
-  for (const follow of user.account.following) {
+  for (const follow of account.following) {
     if (follow.followingId === post.accountId) {
       const replyTarget = post.replyTarget;
       return (
         replyTarget == null ||
-        replyTarget.accountId === user.id ||
-        (user.account.following.some(
+        replyTarget.accountId === account.id ||
+        (account.following.some(
           (f) => f.followingId === replyTarget.accountId,
         ) &&
-          !user.account.blocks.some(
+          !account.blocks.some(
             (b) => b.accountId === replyTarget.accountId,
           ) &&
-          !user.account.mutes.some(
+          !account.mutes.some(
             (m) => m.mutedAccountId === replyTarget.accountId,
           ))
       );
@@ -154,23 +149,21 @@ export function shouldIncludePostInList(
     replyTarget: Post | null;
   },
   list: List & {
-    user: User & {
-      account: Account & {
-        following: Follow[];
-        blocks: Block[];
-        blockedBy: Block[];
-        mutes: Mute[];
-      };
+    account: Account & {
+      following: Follow[];
+      blocks: Block[];
+      blockedBy: Block[];
+      mutes: Mute[];
     };
     members: ListMember[];
   },
 ): boolean {
-  if (shouldExcludePostFromTimeline(post, list.user)) return false;
+  if (shouldExcludePostFromTimeline(post, list.account)) return false;
   if (!list.members.some((m) => m.accountId === post.accountId)) return false;
   if (post.replyTarget != null) {
     const originalAuthorId = post.replyTarget.accountId;
     if (list.repliesPolicy === "followed") {
-      return list.user.account.following.some(
+      return list.account.following.some(
         (f) => f.followingId === originalAuthorId,
       );
     }
@@ -194,41 +187,34 @@ export async function appendPostToTimelines(
     replyTarget: Post | null;
   },
 ): Promise<void> {
-  const users = await db.query.users.findMany({
+  const accounts = await db.query.accounts.findMany({
+    with: {
+      following: true,
+      blocks: true,
+      blockedBy: true,
+      mutes: true,
+    },
+  });
+  const lists = await db.query.lists.findMany({
     with: {
       account: {
         with: {
+
           following: true,
           blocks: true,
           blockedBy: true,
           mutes: true,
         },
       },
-    },
-  });
-  const lists = await db.query.lists.findMany({
-    with: {
-      user: {
-        with: {
-          account: {
-            with: {
-              following: true,
-              blocks: true,
-              blockedBy: true,
-              mutes: true,
-            },
-          },
-        },
-      },
       members: true,
     },
   });
-  for (const user of users) {
-    if (shouldIncludePostInTimeline(post, user)) {
+  for (const account of accounts) {
+    if (shouldIncludePostInTimeline(post, account)) {
       await db
         .insert(schema.timelinePosts)
         .values({
-          accountId: user.id,
+          accountId: account.id,
           postId: post.id,
         })
         .onConflictDoNothing();
@@ -303,7 +289,15 @@ export async function rebuildTimelines(
   >,
   window = TIMELINE_INBOX_LIMIT * 10,
 ): Promise<void> {
-  const users = await db.query.users.findMany({
+  const accounts = await db.query.accounts.findMany({
+    with: {
+      following: true,
+      blocks: true,
+      blockedBy: true,
+      mutes: true,
+    },
+  });
+  const lists = await db.query.lists.findMany({
     with: {
       account: {
         with: {
@@ -313,27 +307,11 @@ export async function rebuildTimelines(
           mutes: true,
         },
       },
-    },
-  });
-  const lists = await db.query.lists.findMany({
-    with: {
-      user: {
-        with: {
-          account: {
-            with: {
-              following: true,
-              blocks: true,
-              blockedBy: true,
-              mutes: true,
-            },
-          },
-        },
-      },
       members: true,
     },
   });
   const timelineInboxes: Record<Uuid, Set<Uuid>> = Object.fromEntries(
-    users.map((o) => [o.id, new Set()]),
+    accounts.map((o) => [o.id, new Set()]),
   );
   const listInboxes: Record<Uuid, Set<Uuid>> = Object.fromEntries(
     lists.map((l) => [l.id, new Set()]),
@@ -369,9 +347,9 @@ export async function rebuildTimelines(
       limit: window,
     });
     for (const post of posts) {
-      for (const user of users) {
-        if (shouldIncludePostInTimeline(post, user)) {
-          const set = timelineInboxes[user.id];
+      for (const account of accounts) {
+        if (shouldIncludePostInTimeline(post, account)) {
+          const set = timelineInboxes[account.id];
           if (set.size < TIMELINE_INBOX_LIMIT) set.add(post.id);
         }
       }
@@ -419,7 +397,7 @@ export async function rebuildTimelines(
   logger.debug(
     "Rebuit inboxes for {accounts} accounts and {lists} lists: {inboxes}",
     {
-      accounts: users.length,
+      accounts: accounts.length,
       lists: lists.length,
       inboxes: { ...timelineInboxes, ...listInboxes },
     },
