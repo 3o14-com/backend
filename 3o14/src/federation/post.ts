@@ -249,14 +249,11 @@ export async function persistPost(
           : "direct",
     summary: object.summary?.toString(),
     contentHtml: object.content?.toString(),
-    language:
-      object.content instanceof LanguageString
-        ? object.content.language.compact()
-        : object.summary instanceof LanguageString
-          ? object.summary.language.compact()
-          : null,
     tags,
-    emojis,
+    content:
+      object.content instanceof LanguageString
+        ? String(object.content)
+        : object.content,
     sensitive: object.sensitive ?? false,
     url: object.url instanceof Link ? object.url.href?.href : object.url?.href,
     repliesCount: replies?.totalItems ?? 0,
