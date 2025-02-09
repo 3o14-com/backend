@@ -105,7 +105,6 @@ app.post(
         422,
       );
     }
-    console.log("test3");
     const idempotencyKey = c.req.header("Idempotency-Key");
     if (idempotencyKey != null) {
       const post = await db.query.posts.findFirst({
@@ -118,7 +117,6 @@ app.post(
       });
       if (post != null) return c.json(serializePost(post, user, c.req.url));
     }
-    console.log("test4");
     const fedCtx = federation.createContext(c.req.raw, undefined);
     const data = c.req.valid("json");
     const handle = user.username;
@@ -163,7 +161,6 @@ app.post(
         );
       }
 
-      console.log("test6");
       const insertedRows = await tx
         .insert(posts)
         .values({
@@ -184,7 +181,6 @@ app.post(
           published: sql`CURRENT_TIMESTAMP`,
         })
         .returning();
-      console.log("test7");
       if (data.media_ids != null && data.media_ids.length > 0) {
         for (const mediaId of data.media_ids) {
           const result = await tx
@@ -199,10 +195,8 @@ app.post(
         }
       }
       // TODO mentions
-      console.log("test8");
       let mentionObjects: Mention[] = [];
       await updateAccountStats(tx, user);
-      console.log("test3");
       await appendPostToTimelines(tx, {
         ...insertedRows[0],
         sharing: null,
@@ -215,7 +209,6 @@ app.post(
             })) ?? null),
       });
     });
-    console.log("test3");
     const post = (await db.query.posts.findFirst({
       where: eq(posts.id, id),
       with: getPostRelations(user.account.id),

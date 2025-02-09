@@ -113,33 +113,19 @@ export function serializePost(
     application: Application | null;
     replyTarget: Post | null;
     sharing:
+    | (Post & {
+      account: Account & { successor: Account | null };
+      application: Application | null;
+      replyTarget: Post | null;
+      quoteTarget:
       | (Post & {
         account: Account & { successor: Account | null };
         application: Application | null;
         replyTarget: Post | null;
-        quoteTarget:
-          | (Post & {
-            account: Account & { successor: Account | null };
-            application: Application | null;
-            replyTarget: Post | null;
-            media: Medium[];
-            poll:
-              | (Poll & { options: PollOption[]; votes: PollVote[] })
-              | null;
-            mentions: (Mention & {
-              account: Account & {
-                user: User | null;
-                successor: Account | null;
-              };
-            })[];
-            likes: Like[];
-            shares: Post[];
-            bookmarks: Bookmark[];
-            pin: PinnedPost | null;
-          })
-          | null;
         media: Medium[];
-        poll: (Poll & { options: PollOption[]; votes: PollVote[] }) | null;
+        poll:
+        | (Poll & { options: PollOption[]; votes: PollVote[] })
+        | null;
         mentions: (Mention & {
           account: Account & {
             user: User | null;
@@ -152,25 +138,39 @@ export function serializePost(
         pin: PinnedPost | null;
       })
       | null;
+      media: Medium[];
+      poll: (Poll & { options: PollOption[]; votes: PollVote[] }) | null;
+      mentions: (Mention & {
+        account: Account & {
+          user: User | null;
+          successor: Account | null;
+        };
+      })[];
+      likes: Like[];
+      shares: Post[];
+      bookmarks: Bookmark[];
+      pin: PinnedPost | null;
+    })
+    | null;
     quoteTarget:
-      | (Post & {
-        account: Account & { successor: Account | null };
-        application: Application | null;
-        replyTarget: Post | null;
-        media: Medium[];
-        poll: (Poll & { options: PollOption[]; votes: PollVote[] }) | null;
-        mentions: (Mention & {
-          account: Account & {
-            user: User | null;
-            successor: Account | null;
-          };
-        })[];
-        likes: Like[];
-        shares: Post[];
-        bookmarks: Bookmark[];
-        pin: PinnedPost | null;
-      })
-      | null;
+    | (Post & {
+      account: Account & { successor: Account | null };
+      application: Application | null;
+      replyTarget: Post | null;
+      media: Medium[];
+      poll: (Poll & { options: PollOption[]; votes: PollVote[] }) | null;
+      mentions: (Mention & {
+        account: Account & {
+          user: User | null;
+          successor: Account | null;
+        };
+      })[];
+      likes: Like[];
+      shares: Post[];
+      bookmarks: Bookmark[];
+      pin: PinnedPost | null;
+    })
+    | null;
     media: Medium[];
     poll: (Poll & { options: PollOption[]; votes: PollVote[] }) | null;
     mentions: (Mention & {
@@ -213,7 +213,7 @@ export function serializePost(
       (bookmark) => bookmark.accountId === currentUser.id,
     ),
     pinned: post.pin != null && post.pin.accountId === currentUser.id,
-    content: post.contentHtml ?? "",
+    content: post.content ?? "",
     reblog: post.sharing == null ? null : serializePost(
       { ...post.sharing, sharing: null },
       currentUser,
