@@ -26,6 +26,7 @@
             hoppscotch
             ngrok
             minio
+            pgweb
           ];
 
           shellHook = ''

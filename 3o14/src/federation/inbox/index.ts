@@ -204,7 +204,7 @@ export async function onFollowAccepted(
           eq(follows.followingId, account.id),
         ),
       );
-    await updateAccountStats(db, { iri: object.actorId.href });
+    await updateAccountStats(db, { uri: object.actorId.href });
   }
 }
 
@@ -251,7 +251,7 @@ export async function onFollowRejected(
           eq(follows.followingId, account.id),
         ),
       );
-    await updateAccountStats(db, { iri: object.actorId.href });
+    await updateAccountStats(db, { uri: object.actorId.href });
   }
 }
 

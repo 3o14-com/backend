@@ -284,7 +284,7 @@ export async function updateAccountStats(
     typeof schema,
     ExtractTablesWithRelations<typeof schema>
   >,
-  account: { id: Uuid } | { iri: string },
+  account: { id: Uuid } | { uri: string },
 ): Promise<void> {
   const id =
     "id" in account
@@ -292,7 +292,7 @@ export async function updateAccountStats(
       : db
         .select({ id: schema.accounts.id })
         .from(schema.accounts)
-        .where(eq(schema.accounts.uri, account.iri));
+        .where(eq(schema.accounts.uri, account.uri));
   const followingCount = db
     .select({ cnt: count() })
     .from(schema.follows)
@@ -326,9 +326,9 @@ export async function updateAccountStats(
       and(
         "id" in account
           ? eq(schema.accounts.id, account.id)
-          : eq(schema.accounts.uri, account.iri),
+          : eq(schema.accounts.uri, account.uri),
         inArray(
-          schema.accounts.id,
+          schema.accounts.userId,
           db.select({ id: schema.users.id }).from(schema.users),
         ),
       ),
