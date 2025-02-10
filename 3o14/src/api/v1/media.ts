@@ -19,7 +19,7 @@ export async function postMedia(c: Context<{ Variables: Variables }>) {
   }
   const form = await c.req.formData();
   const file = form.get("file");
-  if (!(file instanceof File)) {
+  if (!file || !(file instanceof File)) {
     return c.json({ error: "file is required" }, 422);
   }
   const description = form.get("description")?.toString();
