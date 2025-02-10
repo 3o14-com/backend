@@ -168,7 +168,7 @@ app.patch(
           ? account.sensitive
           : form["source[sensitive]"] === "true",
       })
-      .where(eq(accounts.id, user.id))
+      .where(eq(accounts.userId, user.id))
       .returning();
     const updatedUsers = await db
       .update(users)
