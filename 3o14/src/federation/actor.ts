@@ -75,20 +75,16 @@ federation
   .setKeyPairsDispatcher(async (_ctx, identifier) => {
     const user = await db.query.users.findFirst({
       where: eq(users.username, identifier),
-      with: { account: true }
     });
     if (user == null) return [];
-    const account = user.account;
-    if (account.ed25519PrivateKey == null || account.rsaPrivateKey == null) return [];
-    if (account.ed25519PublicKey == null || account.rsaPublicKey == null) return [];
     return [
       {
-        privateKey: await importJwk(account.rsaPrivateKey, "private"),
-        publicKey: await importJwk(account.rsaPublicKey, "public"),
+        privateKey: await importJwk(user.rsaPrivateKey, "private"),
+        publicKey: await importJwk(user.rsaPublicKey, "public"),
       },
       {
-        privateKey: await importJwk(account.ed25519PrivateKey, "private"),
-        publicKey: await importJwk(account.rsaPublicKey, "public"),
+        privateKey: await importJwk(user.ed25519PrivateKey, "private"),
+        publicKey: await importJwk(user.rsaPublicKey, "public"),
       }
     ];
   });

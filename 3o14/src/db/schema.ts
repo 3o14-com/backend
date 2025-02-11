@@ -45,6 +45,10 @@ export const users = pgTable(
     updatedAt: timestamp("updated_at").notNull().default(currentTimestamp),
     visibility: postVisibilityEnum("visibility").notNull().default("public"),
     discoverable: boolean().notNull().default(true),
+    rsaPrivateKey: jsonb("rsa_private_key").$type<JsonWebKey>().notNull(),
+    rsaPublicKey: jsonb("rsa_public_key").$type<JsonWebKey>().notNull(),
+    ed25519PrivateKey: jsonb("ed25519_private_key").$type<JsonWebKey>().notNull(),
+    ed25519PublicKey: jsonb("ed25519_public_key").$type<JsonWebKey>().notNull(),
   },
   (table) => [
     check(
@@ -99,10 +103,6 @@ export const accounts = pgTable("accounts", {
     .notNull()
     .default({})
     .$type<Record<string, string>>(),
-  rsaPrivateKey: jsonb("rsa_private_key").$type<JsonWebKey>(),
-  rsaPublicKey: jsonb("rsa_public_key").$type<JsonWebKey>(),
-  ed25519PrivateKey: jsonb("ed25519_private_key").$type<JsonWebKey>(),
-  ed25519PublicKey: jsonb("ed25519_public_key").$type<JsonWebKey>(),
 })
 
 

@@ -123,6 +123,10 @@ auth.post("/register", async (c) => {
           email,
           username,
           passwordHash,
+          rsaPublicKey: await exportJwk(rsaKeyPairs.publicKey),
+          rsaPrivateKey: await exportJwk(rsaKeyPairs.privateKey),
+          ed25519PublicKey: await exportJwk(ed25519KeyPairs.publicKey),
+          ed25519PrivateKey: await exportJwk(ed25519KeyPairs.privateKey),
         });
 
         await tx
@@ -149,10 +153,6 @@ auth.post("/register", async (c) => {
           followersUrl: fedCtx.getFollowersUri(username).href,
           sharedInboxUrl: fedCtx.getInboxUri().href,
           featuredUrl: fedCtx.getFeaturedUri(username).href,
-          rsaPublicKey: await exportJwk(rsaKeyPairs.publicKey),
-          rsaPrivateKey: await exportJwk(rsaKeyPairs.privateKey),
-          ed25519PublicKey: await exportJwk(ed25519KeyPairs.publicKey),
-          ed25519PrivateKey: await exportJwk(ed25519KeyPairs.privateKey),
         });
       });
       return c.redirect("/auth/login");

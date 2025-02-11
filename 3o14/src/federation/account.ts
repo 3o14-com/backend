@@ -102,19 +102,6 @@ export async function persistAccount(
       fieldHtmls[attachment.name.toString()] = attachment.value.toString();
     }
   }
-  const emojis: Record<string, string> = {};
-  for await (const tag of actor.getTags(opts)) {
-    if (tag instanceof Emoji && tag.name != null) {
-      const icon = await tag.getIcon(opts);
-      if (icon?.url == null) continue;
-      let href: string;
-      if (icon.url instanceof Link) {
-        if (icon.url.href == null) continue;
-        href = icon.url.href.href;
-      } else href = icon.url.href;
-      emojis[tag.name.toString()] = href;
-    }
-  }
   const nodeInfo = await getNodeInfo(actor.id, {
     parse: "best-effort",
   });
