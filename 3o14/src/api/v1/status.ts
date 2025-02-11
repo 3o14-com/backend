@@ -218,7 +218,7 @@ app.post(
       excludeBaseUris: [new URL(c.req.url)],
     });
     if (post.visibility !== "direct") {
-      await fedCtx.sendActivity({ handle }, "followers", activity, {
+      await fedCtx.sendActivity({ username: handle }, "followers", activity, {
         preferSharedInbox: true,
         excludeBaseUris: [new URL(c.req.url)],
       });
