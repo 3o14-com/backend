@@ -206,12 +206,13 @@ federation
     "/@{identifier}/outbox",
     async (ctx, identifier, cursor) => {
       if (cursor == null) return null;
-      const owner = await db.query.users.findFirst({
+      const user = await db.query.users.findFirst({
         where: eq(users.username, identifier),
+        with: { account: true },
       });
-      if (owner == null) return null;
+      if (user == null) return null;
       const items = await db.query.posts.findMany({
-        where: eq(posts.accountId, owner.id),
+        where: eq(posts.accountId, user.account.id),
         orderBy: desc(posts.published),
         offset: Number.parseInt(cursor),
         limit: 41,
@@ -262,7 +263,7 @@ federation
       });
       if (user == null) return null;
       const items = await db.query.likes.findMany({
-        where: eq(likes.accountId, user.id),
+        where: eq(likes.accountId, user.account.id),
         orderBy: desc(likes.created),
         offset: Number.parseInt(cursor),
         limit: 41,
@@ -289,12 +290,13 @@ federation
   .setCounter(async (_ctx, identifier) => {
     const user = await db.query.users.findFirst({
       where: eq(users.username, identifier),
+      with: { account: true },
     });
     if (user == null) return null;
     const result = await db
       .select({ cnt: count() })
       .from(likes)
-      .where(eq(likes.accountId, user.id));
+      .where(eq(likes.accountId, user.account.id));
     if (result.length < 1) return 0;
     return result[0].cnt;
   });
@@ -302,13 +304,13 @@ federation
 federation.setFeaturedDispatcher(
   "/@{identifier}/pinned",
   async (ctx, identifier) => {
-    const owner = await db.query.users.findFirst({
+    const user = await db.query.users.findFirst({
       where: eq(users.username, identifier),
       with: { account: true },
     });
-    if (owner == null) return null;
+    if (user == null) return null;
     const items = await db.query.pinnedPosts.findMany({
-      where: eq(pinnedPosts.accountId, owner.id),
+      where: eq(pinnedPosts.accountId, user.account.id),
       orderBy: desc(pinnedPosts.index),
       with: {
         post: {
