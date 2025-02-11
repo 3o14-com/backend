@@ -36,6 +36,13 @@
       "when": 1738938219504,
       "tag": "0004_tired_crusher_hogan",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1739286675611,
+      "tag": "0005_hot_tinkerer",
+      "breakpoints": true
     }
   ]
 }
