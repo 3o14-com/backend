@@ -70,7 +70,7 @@ app.post(
     if (follower.user == null) {
       const fedCtx = federation.createContext(c.req.raw, undefined);
       await fedCtx.sendActivity(
-        user,
+        { username: user.username },
         { id: new URL(follower.uri), inboxId: new URL(follower.inboxUrl) },
         new Accept({
           id: new URL(`#accepts/${follower.uri}`, user.account.uri),
@@ -143,7 +143,7 @@ app.post(
     if (follower.user == null) {
       const fedCtx = federation.createContext(c.req.raw, undefined);
       await fedCtx.sendActivity(
-        user,
+        { username: user.username },
         { id: new URL(follower.uri), inboxId: new URL(follower.inboxUrl) },
         new Reject({
           id: new URL(`#rejects/${follower.uri}`, user.account.uri),

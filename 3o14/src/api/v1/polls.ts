@@ -151,7 +151,7 @@ app.post(
     if (poll.post.account.user == null) {
       for (const choice of choices) {
         await fedCtx.sendActivity(
-          user,
+          { username: user.username },
           [
             {
               id: new URL(poll.post.account.uri),

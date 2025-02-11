@@ -54,11 +54,12 @@ export const users = pgTable(
   ],
 );
 
-export const userRelations = relations(users, ({ one }) => ({
+export const userRelations = relations(users, ({ one, many }) => ({
   account: one(accounts, {
     fields: [users.id],
     references: [accounts.userId],
-  })
+  }),
+  accessTokens: many(accessTokens),
 }))
 
 export type User = typeof users.$inferSelect;

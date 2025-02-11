@@ -196,7 +196,7 @@ app.post(
       }
       // TODO mentions
       let mentionObjects: Mention[] = [];
-      await updateAccountStats(tx, user);
+      await updateAccountStats(tx, user.account);
       await appendPostToTimelines(tx, {
         ...insertedRows[0],
         sharing: null,
@@ -214,7 +214,7 @@ app.post(
       with: getPostRelations(user.account.id),
     }))!;
     const activity = toCreate(post, fedCtx);
-    await fedCtx.sendActivity({ handle }, getRecipients(post), activity, {
+    await fedCtx.sendActivity({ username: user.username }, getRecipients(post), activity, {
       excludeBaseUris: [new URL(c.req.url)],
     });
     if (post.visibility !== "direct") {
@@ -272,10 +272,12 @@ app.put(
       with: getPostRelations(user.account.id),
     });
     const activity = toUpdate(post!, fedCtx);
-    await fedCtx.sendActivity(user, getRecipients(post!), activity, {
+    await fedCtx.sendActivity(
+      { username: user.username },
+      getRecipients(post!), activity, {
       excludeBaseUris: [new URL(c.req.url)],
     });
-    await fedCtx.sendActivity(user, "followers", activity, {
+    await fedCtx.sendActivity({ username: user.username }, "followers", activity, {
       preferSharedInbox: true,
       excludeBaseUris: [new URL(c.req.url)],
     });
@@ -324,7 +326,7 @@ app.delete(
     const fedCtx = federation.createContext(c.req.raw, undefined);
     const activity = toDelete(post, fedCtx);
     await fedCtx.sendActivity(
-      { handle: user.username },
+      { username: user.username },
       getRecipients(post),
       activity,
       {
@@ -333,7 +335,7 @@ app.delete(
     );
     if (post.visibility !== "direct") {
       await fedCtx.sendActivity(
-        { handle: user.username },
+        { username: user.username },
         "followers",
         activity,
         {
@@ -521,7 +523,7 @@ app.post(
     }
     const fedCtx = federation.createContext(c.req.raw, undefined);
     await fedCtx.sendActivity(
-      { handle: user.username },
+      { username: user.username },
       {
         id: new URL(post.account.uri),
         inboxId: new URL(post.account.inboxUrl),
@@ -569,7 +571,7 @@ app.post(
     }
     const fedCtx = federation.createContext(c.req.raw, undefined);
     await fedCtx.sendActivity(
-      { handle: user.username },
+      { username: user.username },
       {
         id: new URL(post.account.uri),
         inboxId: new URL(post.account.inboxUrl),
@@ -706,7 +708,7 @@ app.post(
       with: getPostRelations(user.account.id),
     });
     await fedCtx.sendActivity(
-      { handle: user.username },
+      { username: user.username },
       "followers",
       toAnnounce(post!, fedCtx),
       {
@@ -761,7 +763,7 @@ app.post(
     const fedCtx = federation.createContext(c.req.raw, undefined);
     for (const post of postList) {
       await fedCtx.sendActivity(
-        { handle: user.username },
+        { username: user.username },
         "followers",
         new Undo({
           actor: new URL(user.account.uri),

@@ -178,7 +178,7 @@ app.patch(
       .where(eq(users.id, user.id))
       .returning();
     await fedCtx.sendActivity(
-      { handle: updatedUsers[0].username },
+      { username: updatedUsers[0].username },
       "followers",
       new vocab.Update({
         actor: fedCtx.getActorUri(updatedUsers[0].username),
@@ -472,6 +472,7 @@ app.get(
         422,
       );
     }
+    console.log("test1");
     const account = await db.query.accounts.findFirst({
       where: eq(accounts.id, id),
       with: {
@@ -487,6 +488,7 @@ app.get(
     ) {
       return c.json([]);
     }
+    console.log("test2");
     const [{ cnt }] = await db
       .select({ cnt: count() })
       .from(posts)
@@ -507,6 +509,8 @@ app.get(
         },
       );
     }
+
+    console.log("test3");
     const query = c.req.valid("query");
     const limit = query.limit ?? 20;
     const following = await db
