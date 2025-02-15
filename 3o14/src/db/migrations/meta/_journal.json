@@ -5,43 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1738844061965,
-      "tag": "0000_tidy_robin_chapel",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1738851504152,
-      "tag": "0001_colorful_texas_twister",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1738852298968,
-      "tag": "0002_workable_lily_hollister",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1738857042355,
-      "tag": "0003_vengeful_absorbing_man",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1738938219504,
-      "tag": "0004_tired_crusher_hogan",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1739286675611,
-      "tag": "0005_hot_tinkerer",
+      "when": 1739612328887,
+      "tag": "0000_clammy_jocasta",
       "breakpoints": true
     }
   ]

@@ -20,6 +20,7 @@
     "flydrive": "^1.1.0",
     "hono": "^4.6.19",
     "mime": "^4.0.6",
+    "open-graph-scraper": "^6.9.0",
     "pg": "^8.13.1",
     "postgres": "^3.4.5",
     "semver": "^7.7.1",
