@@ -1,6 +1,7 @@
 import { base64 } from "@hexagon/base64";
 import { zValidator } from "@hono/zod-validator";
 import { eq } from "drizzle-orm";
+import { escape } from "es-toolkit";
 import { type Context, Hono } from "hono";
 import { cors } from "hono/cors";
 import { z } from "zod";
@@ -9,7 +10,7 @@ import { db } from "../db/db";
 import { loginRequired } from "../middlewares/login";
 import {
   type Account,
-  type User,
+  type AccountOwner,
   type Application,
   type Scope,
   accessTokens,
@@ -17,7 +18,11 @@ import {
   scopeEnum,
 } from "../db/schema";
 import { uuid } from "../utils/uuid";
-import { SECRET_KEY, type Variables } from "../middlewares/oauth";
+
+import { type Variables } from "../middlewares/oauth";
+
+const SECRET_KEY = process.env["SECRET_KEY"];
+if (SECRET_KEY == null) throw new Error("SECRET_KEY is required");
 
 const app = new Hono<{ Variables: Variables }>();
 
@@ -66,12 +71,12 @@ app.get(
     if (!application.redirectUris.includes(data.redirect_uri)) {
       return c.json({ error: "invalid_redirect_uri" }, 400);
     }
-    const users = await db.query.users.findMany({
+    const accountOwners = await db.query.accountOwners.findMany({
       with: { account: true },
     });
     return c.html(
       <AuthorizationPage
-        users={users}
+        accountOwners={accountOwners}
         application={application}
         redirectUri={data.redirect_uri}
         scopes={scopes}
@@ -81,12 +86,8 @@ app.get(
   },
 );
 
-
-
-
-
 interface AuthorizationPageProps {
-  users: (User & { account: Account })[];
+  accountOwners: (AccountOwner & { account: Account })[];
   application: Application;
   redirectUri: string;
   scopes: Scope[];
@@ -95,89 +96,67 @@ interface AuthorizationPageProps {
 
 function AuthorizationPage(props: AuthorizationPageProps) {
   return (
-    <Layout>
-      <div class="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-        <div class="max-w-xl mx-auto">
-          <div class="bg-white shadow rounded-lg overflow-hidden">
-            {/* Header */}
-            <div class="px-6 py-4 border-b border-gray-200">
-              <h2 class="text-xl font-semibold text-gray-900">
-                3o14: Authorize {props.application.name}
-              </h2>
-            </div>
-
-            {/* Content */}
-            <div class="px-6 py-4 space-y-6">
-              <div>
-                <p class="text-gray-700">Do you want to authorize {props.application.name}</p>
-                <div class="mt-4">
-                  <p class="font-medium text-gray-900 mb-2">It allows the application to:</p>
-                  <ul class="space-y-2">
-                    {props.scopes.map((scope) => (
-                      <li key={scope} class="flex items-center">
-                        <code class="px-2 py-1 bg-gray-100 rounded text-sm text-gray-800">
-                          {scope}
-                        </code>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-
-              <form action="/oauth/authorize" method="post" class="space-y-6">
-                <div>
-                  <p class="font-medium text-gray-900 mb-4">Choose an account to authorize:</p>
-                  <div class="space-y-3">
-                    {props.users.map((user, i) => (
-                      <label key={user.id} class="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="account_id"
-                          value={user.id}
-                          checked={i === 0}
-                          class="mt-1 h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                        />
-                        <div class="flex-1">
-                          <strong class="text-gray-900">{user.account.preferredName}</strong>
-                          <p class="mt-1 text-sm text-gray-500">{user.account.handle}</p>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <input type="hidden" name="application_id" value={props.application.id} />
-                <input type="hidden" name="redirect_uri" value={props.redirectUri} />
-                <input type="hidden" name="scopes" value={props.scopes.join(" ")} />
-                {props.state != null && <input type="hidden" name="state" value={props.state} />}
-
-                <div class="flex items-center justify-end space-x-4">
-                  {props.redirectUri !== "urn:ietf:wg:oauth:2.0:oob" && (
-                    <button
-                      type="submit"
-                      name="decision"
-                      value="deny"
-                      class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    >
-                      Deny
-                    </button>
-                  )}
-                  <button
-                    type="submit"
-                    name="decision"
-                    value="allow"
-                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                  >
-                    Allow
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
+    <Layout title={`3o14: Authorize ${props.application.name}`}>
+      <hgroup>
+        <h1>Authorize {props.application.name}</h1>
+        <p>Do you want to authorize this application to access your account?</p>
+      </hgroup>
+      <p>It allows the application to:</p>
+      <ul>
+        {props.scopes.map((scope) => (
+          <li key={scope}>
+            <code>{scope}</code>
+          </li>
+        ))}
+      </ul>
+      <form action="/oauth/authorize" method="post">
+        <p>Choose an account to authorize:</p>
+        {props.accountOwners.map((accountOwner, i) => {
+          const accountName = escape(accountOwner.account.name);
+          return (
+            <label>
+              <input
+                type="radio"
+                name="account_id"
+                value={accountOwner.id}
+                checked={i === 0}
+              />
+              {/* biome-ignore lint/security/noDangerouslySetInnerHtml: xss protected */}
+              <strong dangerouslySetInnerHTML={{ __html: accountName }} />
+              <p style="margin-left: 1.75em; margin-top: 0.25em;">
+                <small>{accountOwner.account.handle}</small>
+              </p>
+            </label>
+          );
+        })}
+        <input
+          type="hidden"
+          name="application_id"
+          value={props.application.id}
+        />
+        <input type="hidden" name="redirect_uri" value={props.redirectUri} />
+        <input type="hidden" name="scopes" value={props.scopes.join(" ")} />
+        {props.state != null && (
+          <input type="hidden" name="state" value={props.state} />
+        )}
+        <div role="group">
+          {props.redirectUri !== "urn:ietf:wg:oauth:2.0:oob" && (
+            <button
+              type="submit"
+              class="secondary"
+              name="decision"
+              value="deny"
+            >
+              Deny
+            </button>
+          )}
+          <button type="submit" name="decision" value="allow">
+            Allow
+          </button>
         </div>
-      </div>
+      </form>
     </Layout>
-  )
+  );
 }
 
 app.post(
@@ -219,7 +198,7 @@ app.post(
         true,
       );
       await db.insert(accessTokens).values({
-        userId: form.account_id,
+        accountOwnerId: form.account_id,
         code,
         applicationId: application.id,
         scopes: form.scopes,
@@ -243,7 +222,7 @@ interface AuthorizationCodePageProps {
 
 function AuthorizationCodePage(props: AuthorizationCodePageProps) {
   return (
-    <Layout title={"Hollo: Authorization Code"}>
+    <Layout title={"3o14: Authorization Code"}>
       <hgroup>
         <h1>Authorization Code</h1>
         <p>Here is your authorization code.</p>
@@ -338,7 +317,7 @@ app.post("/token", cors(), async (c) => {
       where: eq(accessTokens.code, form.code),
       with: { application: true },
     });
-    if (token == null) {
+    if (token == null || token.grant_type !== "authorization_code") {
       return c.json(
         {
           error: "invalid_grant",
@@ -398,7 +377,7 @@ app.post("/token", cors(), async (c) => {
       code,
       applicationId: application.id,
       scopes,
-      // grant_type: "client_credentials",
+      grant_type: "client_credentials",
     })
     .returning();
   return c.json({
@@ -416,16 +395,12 @@ export async function oauthAuthorizationServer(c: Context) {
     issuer: new URL("/", url).href,
     authorization_endpoint: new URL("/oauth/authorize", url).href,
     token_endpoint: new URL("/oauth/token", url).href,
-    // Not yet supported by Hollo:
-    // "revocation_endpoint": "",
     scopes_supported: scopeEnum.enumValues,
     response_types_supported: ["code"],
     response_modes_supported: ["query"],
     grant_types_supported: ["authorization_code", "client_credentials"],
     token_endpoint_auth_methods_supported: [
       "client_secret_post",
-      // Not supported by Hollo:
-      // "client_secret_basic",
     ],
     app_registration_endpoint: new URL("/api/v1/apps", url).href,
   });
