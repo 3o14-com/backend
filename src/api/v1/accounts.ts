@@ -362,7 +362,7 @@ app.get(
         .transform((v) => Number.parseInt(v)),
       resolve: z
         .enum(["true", "false"])
-        .default("false")
+        .default("true")
         .transform((v) => v === "true"),
       following: z
         .enum(["true", "false"])
@@ -371,6 +371,13 @@ app.get(
     }),
   ),
   async (c) => {
+    const owner = c.get("token")?.accountOwner;
+    if (owner == null) {
+      return c.json(
+        { error: "This method requires an authenticated user" },
+        422,
+      );
+    }
     const query = c.req.valid("query");
     if (query.resolve && HANDLE_PATTERN.test(query.q) && query.offset < 1) {
       const exactMatch = await db.query.accounts.findFirst({
@@ -385,6 +392,16 @@ app.get(
           }),
         };
         const actor = await lookupObject(query.q, options);
+        if (isActor(actor)) await persistAccount(db, actor, c.req.url, options);
+      } else {
+        const actor = await lookupObject(query.q);
+        const fedCtx = federation.createContext(c.req.raw, undefined);
+        const options = {
+          contextLoader: fedCtx.contextLoader,
+          documentLoader: await fedCtx.getDocumentLoader({
+            username: owner.handle,
+          }),
+        };
         if (isActor(actor)) await persistAccount(db, actor, c.req.url, options);
       }
     }
