@@ -117,8 +117,6 @@ app.get(
           created: sql<Date>`coalesce(${posts.published}, ${posts.updated})`,
           accountId: posts.accountId,
           postId: sql<string | null>`${sharingPosts.id}`,
-          emoji: sql<string | null>`null`,
-          customEmoji: sql<string | null>`null`,
         })
         .from(posts)
         .leftJoin(sharingPosts, eq(posts.sharingId, sharingPosts.id))
@@ -138,8 +136,6 @@ app.get(
           created: sql<Date>`${follows.approved}`,
           accountId: follows.followerId,
           postId: sql<string | null>`null`,
-          emoji: sql<string | null>`null`,
-          customEmoji: sql<string | null>`null`,
         })
         .from(follows)
         .where(
@@ -176,8 +172,6 @@ app.get(
           created: likes.created,
           accountId: likes.accountId,
           postId: sql<string | null>`${likes.postId}`,
-          emoji: sql<string | null>`null`,
-          customEmoji: sql<string | null>`null`,
         })
         .from(likes)
         .leftJoin(posts, eq(likes.postId, posts.id))
@@ -210,7 +204,7 @@ app.get(
         postId: sql<string | null>`q.postId`,
       })
       .from(
-        sql`${q} AS q (id, "type", created, accountId, postId, emoji, customEmoji)`,
+        sql`${q} AS q (id, "type", created, accountId, postId)`,
       )
       .orderBy(desc(sql`q.created`))
       .limit(limit)) as {
