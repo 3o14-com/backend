@@ -1,10 +1,7 @@
-node_modules
-Dockerfile*
-docker-compose*
-.dockerignore
-.git
-.gitignore
-README.md
-LICENSE
-.zed
 .env
+.git/
+.github/
+node_modules/
+.direnv
+.envrc
+data

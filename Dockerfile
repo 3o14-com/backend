@@ -1,34 +1,26 @@
-FROM oven/bun:1.1.43 AS base
-WORKDIR /usr/src/app
+FROM docker.io/node:23.4-alpine
 
 LABEL org.opencontainers.image.title="3o14"
-LABEL org.opencontainers.image.description="A federated micro-blogging platform."
-LABEL org.opencontainers.image.url="https://github.com/3o14-com/bftgu"
-LABEL org.opencontainers.image.source="https://github.com/3o14-com/bftgu"
+LABEL org.opencontainers.image.description="Federated Microblogging platform"
+LABEL org.opencontainers.image.url="https://github.com/3o14-com/backend"
+LABEL org.opencontainers.image.source="https://github.com/3o14-com/backend"
 LABEL org.opencontainers.image.licenses="AGPL-3.0-only"
 
+RUN apk add --no-cache ffmpeg jq libstdc++ pnpm
 
-FROM base AS install
-RUN mkdir -p /temp/dev
-COPY 3o14/package.json 3o14/bun.lockb /temp/dev/
-RUN cd /temp/dev && bun install --frozen-lockfile
+COPY pnpm-lock.yaml package.json /app/
+WORKDIR /app/
+RUN pnpm install --frozen-lockfile --prod
 
-RUN mkdir -p /temp/prod
-COPY  3o14/package.json 3o14/bun.lockb /temp/prod/
-RUN cd /temp/prod && bun install --frozen-lockfile --production
+COPY . /app/
 
-FROM base AS prerelease
-COPY --from=install /temp/dev/node_modules node_modules
-COPY 3o14 .
+ARG VERSION
+LABEL org.opencontainers.image.version="${VERSION}"
+RUN \
+    if [ "$VERSION" != "" ]; then \
+    jq --arg version "$VERSION" '.version = $version' package.json > .pkg.json \
+    && mv .pkg.json package.json; \
+    fi
 
-FROM base AS release
-COPY --from=install /temp/prod/node_modules node_modules
-COPY --from=prerelease /usr/src/app/src ./src
-COPY --from=prerelease /usr/src/app/package.json .
-COPY --from=prerelease /usr/src/app/tsconfig.json .
-COPY --from=prerelease /usr/src/app/drizzle.config.ts .
-COPY --from=prerelease /usr/src/app/static ./static
-
-USER bun
-EXPOSE 8000
-ENTRYPOINT [ "bun", "prod" ]
+EXPOSE 3000
+CMD ["pnpm", "run", "prod"]
