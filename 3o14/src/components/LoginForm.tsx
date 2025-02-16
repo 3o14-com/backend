@@ -1,68 +1,44 @@
-import { clsx } from "clsx"
-
-export type LoginFormErrors = Record<string, { message: string }>;
-
 export interface LoginFormProps {
-  next?: string,
-  email?: string,
-  password?: string,
-  errors?: LoginFormErrors,
+  method?: "get" | "post" | "dialog";
+  action: string;
+  next?: string;
+  values?: {
+    email?: string;
+  };
+  errors?: {
+    email?: string;
+    password?: string;
+  };
 }
 
 export function LoginForm(props: LoginFormProps) {
   return (
-    <div>
-      <h2 class="card-title">Login</h2>
-      <form hx-post="/auth/login" hx-push-url="true" hx-target=".container" hx-swap="outerHTML">
-        <div class="form-control w-full max-w-xs">
-          <label class="label" for="email">
-            <span class="label-text">Email</span>
-          </label>
-          <input
-            type="email"
-            placeholder="enter your email"
-            id="email"
-            name="email"
-            value={props.email}
-            class={clsx('input input-bordered w-full max-w-xs', {
-              'input-error': props.errors?.email,
-            })}
-            required
-          />
-          <p safe class="m-2 text-error h-4">
-            {props.errors?.email && props.errors.email.message}
-          </p>
-        </div>
-
-
-        <div class="form-control w-full max-w-xs">
-          <label class="label" for="password">
-            <span class="label-text">Password</span>
-          </label>
-          <input
-            type="password"
-            placeholder="enter your password"
-            id="password"
-            name="password"
-            value={props.password}
-            class={clsx('input input-bordered w-full max-w-xs', {
-              'input-error': props.errors?.password,
-            })}
-            required
-          />
-          <p safe class="m-2 text-error h-4">
-            {props.errors?.password && props.errors.password.message}
-          </p>
-        </div>
-
-
-        {props.next && <input type="hidden" name="next" value={props.next} />}
-        <div class="mt-2 flex">
-          <button class="btn btn-primary" type="submit">
-            Login
-          </button>
-        </div>
-      </form>
-    </div>
-  )
+    <form method={props.method ?? "post"} action={props.action}>
+      <label>
+        Email{" "}
+        <input
+          type="email"
+          name="email"
+          required={true}
+          placeholder="john@example.com"
+          value={props.values?.email}
+          aria-invalid={props.errors?.email != null ? true : undefined}
+        />
+        {props.errors?.email && <small>{props.errors.email}</small>}
+      </label>
+      <label>
+        Password{" "}
+        <input
+          type="password"
+          name="password"
+          required={true}
+          minLength={6}
+          aria-invalid={props.errors?.password != null ? true : undefined}
+        />
+        {props.errors?.password && <small>{props.errors.password}</small>}
+      </label>
+      {props.next && <input type="hidden" name="next" value={props.next} />}
+      <button type="submit">Sign in</button>
+    </form>
+  );
 }
