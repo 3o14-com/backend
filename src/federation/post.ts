@@ -510,15 +510,7 @@ export function toObject(
         : post.language == null
           ? [post.summary]
           : [post.summary, new LanguageString(post.summary, post.language)],
-    contents:
-      post.contentHtml == null
-        ? []
-        : post.language == null
-          ? [post.contentHtml]
-          : [
-            post.contentHtml,
-            new LanguageString(post.contentHtml, post.language),
-          ],
+    contents: post.content == null ? [] : [post.content],
     source:
       post.content == null
         ? null
