@@ -12,111 +12,93 @@ import { isUuid, uuidv7 } from "../../uuid";
 
 const app = new Hono<{ Variables: Variables }>();
 
-interface MobileFile {
-  uri: string;
-  name?: string;
-  type?: string;
-}
-
-function isMobileFile(file: unknown): file is MobileFile {
-  return (
-    typeof file === "object" &&
-    file !== null &&
-    "uri" in file &&
-    typeof (file as any).uri === "string"
-  );
-}
-
 export async function postMedia(c: Context<{ Variables: Variables }>) {
   const owner = c.get("token").accountOwner;
   if (owner == null) {
+    console.log("No authenticated user, token:", c.get("token"));
     return c.json({ error: "This method requires an authenticated user" }, 422);
   }
 
   try {
     const form = await c.req.formData();
     const file = form.get("file");
+    const description = form.get("description");
+    console.log("FormData - file:", file);
+    console.log("FormData - description:", description);
 
     if (!file) {
       return c.json({ error: "file is required" }, 422);
     }
 
     let fileData: File;
-    if (isMobileFile(file)) {
-      // Convert the mobile upload format to a proper File instance.
-      const response = await fetch(file.uri);
-      const blob = await response.blob();
-      fileData = new File([blob], file.name || "upload.jpg", {
-        type: file.type || "image/jpeg",
-      });
-    } else if (file instanceof File) {
+    if (file instanceof File) {
       fileData = file;
+      console.log("File is a File instance - size:", fileData.size, "type:", fileData.type);
+    } else if (typeof file === "string") {
+      // Hono might return raw binary data as a string
+      console.log("File is a string (raw data?), length:", file.length);
+      const blob = new Blob([file], { type: "image/jpeg" });
+      fileData = new File([blob], "upload.jpg", { type: "image/jpeg" });
+    } else if (file && typeof file === "object" && "uri" in file) {
+      // Hono might return the mobile file object directly
+      console.log("File is a mobile file object:", file);
+      return c.json({ error: "Server doesn’t support URI fetching - raw data expected" }, 422);
     } else {
+      console.log("Unexpected file format:", file);
       return c.json({ error: "Invalid file format" }, 422);
     }
 
-    const description = form.get("description")?.toString();
     const id = uuidv7();
     const imageData = new Uint8Array(await fileData.arrayBuffer());
 
-    // Determine file type and extension.
     const fileType = fileData.type || "image/jpeg";
     const extension = mime.getExtension(fileType);
     if (!extension) {
       return c.json({ error: "Unsupported media type" }, 400);
     }
 
-    // Process the image.
-    const image = sharp(imageData);
-    const fileMetadata = await image.metadata();
-
     const sanitizedExt = extension.replace(/[/\\]/g, "");
     const path = `media/${id}/original.${sanitizedExt}`;
 
-    // Save the file.
-    try {
-      await disk.put(path, imageData, {
-        contentType: fileType,
-        contentLength: imageData.byteLength,
-        visibility: "public",
-      });
-    } catch (error) {
-      console.error("File save error:", error);
-      return c.json({ error: "Failed to save media file" }, 500);
-    }
+    await disk.put(path, imageData, {
+      contentType: fileType,
+      contentLength: imageData.byteLength,
+      visibility: "public",
+    });
 
     const url = getAssetUrl(path, c.req.url);
 
-    // Save the media record to your database.
-    try {
-      const result = await db
-        .insert(media)
-        .values({
-          id,
-          type: fileType,
-          url,
-          width: fileMetadata.width ?? 0,
-          height: fileMetadata.height ?? 0,
-          description,
-          ...(await uploadThumbnail(id, image, c.req.url)),
-        })
-        .returning();
+    const image = sharp(imageData);
+    const fileMetadata = await image.metadata();
 
-      if (result.length < 1) {
-        throw new Error("Failed to insert media record");
-      }
+    const result = await db
+      .insert(media)
+      .values({
+        id,
+        type: fileType,
+        url,
+        width: fileMetadata.width ?? 0,
+        height: fileMetadata.height ?? 0,
+        description: description?.toString() || null,
+        ...(await uploadThumbnail(id, image, c.req.url)),
+      })
+      .returning();
 
-      return c.json(serializeMedium(result[0]));
-    } catch (error) {
-      console.error("Database error:", error);
-      return c.json({ error: "Failed to insert media" }, 500);
+    if (result.length < 1) {
+      throw new Error("Failed to insert media record");
     }
+
+    const response = serializeMedium(result[0]);
+    console.log("Returning response:", response);
+    return c.json(response);
   } catch (error) {
-    console.error("Upload error:", error);
-    return c.json({ error: "Failed to process upload" }, 500);
+    console.error("Upload error:", error instanceof Error ? error.stack : error);
+    return c.json(
+      { error: "Failed to process upload", details: error.message },
+      500
+    );
   }
 }
-
 app.post("/", tokenRequired, scopeRequired(["write:media"]), postMedia);
 
 app.get("/:id", async (c) => {
