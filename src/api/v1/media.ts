@@ -4,7 +4,7 @@ import mime from "mime";
 import sharp from "sharp";
 import { db } from "../../db";
 import { serializeMedium } from "../../entities/medium";
-import { uploadThumbnail } from "../../media";
+import { makeVideoScreenshot, uploadThumbnail } from "../../media";
 import { type Variables, scopeRequired, tokenRequired } from "../../oauth";
 import { media } from "../../schema";
 import { disk, getAssetUrl } from "../../storage";
@@ -12,109 +12,58 @@ import { isUuid, uuidv7 } from "../../uuid";
 
 const app = new Hono<{ Variables: Variables }>();
 
-interface MobileFile {
-  uri: string;
-  name?: string;
-  type?: string;
-}
-
-function isMobileFile(file: unknown): file is MobileFile {
-  return (
-    typeof file === "object" &&
-    file !== null &&
-    "uri" in file &&
-    typeof (file as any).uri === "string"
-  );
-}
-
 export async function postMedia(c: Context<{ Variables: Variables }>) {
   const owner = c.get("token").accountOwner;
   if (owner == null) {
     return c.json({ error: "This method requires an authenticated user" }, 422);
   }
-
-  try {
-    const form = await c.req.formData();
-    const file = form.get("file");
-
-    if (!file) {
-      return c.json({ error: "file is required" }, 422);
-    }
-
-    let fileData: File;
-    if (isMobileFile(file)) {
-      // Convert the mobile upload format to a proper File instance.
-      const response = await fetch(file.uri);
-      const blob = await response.blob();
-      fileData = new File([blob], file.name || "upload.jpg", {
-        type: file.type || "image/jpeg",
-      });
-    } else if (file instanceof File) {
-      fileData = file;
-    } else {
-      return c.json({ error: "Invalid file format" }, 422);
-    }
-
-    const description = form.get("description")?.toString();
-    const id = uuidv7();
-    const imageData = new Uint8Array(await fileData.arrayBuffer());
-
-    // Determine file type and extension.
-    const fileType = fileData.type || "image/jpeg";
-    const extension = mime.getExtension(fileType);
-    if (!extension) {
-      return c.json({ error: "Unsupported media type" }, 400);
-    }
-
-    // Process the image.
-    const image = sharp(imageData);
-    const fileMetadata = await image.metadata();
-
-    const sanitizedExt = extension.replace(/[/\\]/g, "");
-    const path = `media/${id}/original.${sanitizedExt}`;
-
-    // Save the file.
-    try {
-      await disk.put(path, imageData, {
-        contentType: fileType,
-        contentLength: imageData.byteLength,
-        visibility: "public",
-      });
-    } catch (error) {
-      console.error("File save error:", error);
-      return c.json({ error: "Failed to save media file" }, 500);
-    }
-
-    const url = getAssetUrl(path, c.req.url);
-
-    // Save the media record to your database.
-    try {
-      const result = await db
-        .insert(media)
-        .values({
-          id,
-          type: fileType,
-          url,
-          width: fileMetadata.width ?? 0,
-          height: fileMetadata.height ?? 0,
-          description,
-          ...(await uploadThumbnail(id, image, c.req.url)),
-        })
-        .returning();
-
-      if (result.length < 1) {
-        throw new Error("Failed to insert media record");
-      }
-
-      return c.json(serializeMedium(result[0]));
-    } catch (error) {
-      console.error("Database error:", error);
-      return c.json({ error: "Failed to insert media" }, 500);
-    }
-  } catch (error) {
-    console.error("Upload error:", error);
-    return c.json({ error: "Failed to process upload" }, 500);
+  const form = await c.req.formData();
+  const file = form.get("file");
+  if (!(file instanceof File)) {
+    return c.json({ error: "file is required" }, 422);
   }
+  const description = form.get("description")?.toString();
+  const id = uuidv7();
+  const imageData = new Uint8Array(await file.arrayBuffer());
+  let imageBytes: Uint8Array = imageData;
+  if (file.type.startsWith("video/")) {
+    imageBytes = await makeVideoScreenshot(imageData);
+  }
+  const image = sharp(imageBytes);
+  const fileMetadata = await image.metadata();
+  const content = new Uint8Array(imageData);
+  const extension = mime.getExtension(file.type);
+  if (!extension) {
+    return c.json({ error: "Unsupported media type" }, 400);
+  }
+  const sanitizedExt = extension.replace(/[/\\]/g, "");
+  const path = `media/${id}/original.${sanitizedExt}`;
+  try {
+    await disk.put(path, content, {
+      contentType: file.type,
+      contentLength: content.byteLength,
+      visibility: "public",
+    });
+  } catch (error) {
+    return c.json({ error: "Failed to save media file" }, 500);
+  }
+  const url = getAssetUrl(path, c.req.url);
+  const result = await db
+    .insert(media)
+    .values({
+      id,
+      type: file.type,
+      url,
+      width: fileMetadata.width!,
+      height: fileMetadata.height!,
+      description,
+      ...(await uploadThumbnail(id, image, c.req.url)),
+    })
+    .returning();
+  if (result.length < 1) {
+    return c.json({ error: "Failed to insert media" }, 500);
+  }
+  return c.json(serializeMedium(result[0]));
 }
 
 app.post("/", tokenRequired, scopeRequired(["write:media"]), postMedia);
