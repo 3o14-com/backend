@@ -68,18 +68,18 @@ switch (DRIVE_DISK) {
     if (!assetPath) {
       throw new Error("FS_ASSET_PATH is required");
     }
-    if (!lstatSync(assetPath).isDirectory()) {
-      throw new Error(`Asset path must point to a directory: ${assetPath}`);
-    }
-    access(
-      assetPath,
-      constants.F_OK | constants.R_OK | constants.W_OK,
-      (err) => {
-        if (err) {
-          throw new Error(`${assetPath} must be readable and writable`);
-        }
-      },
-    );
+    // if (!lstatSync(assetPath).isDirectory()) {
+    //   throw new Error(`Asset path must point to a directory: ${assetPath}`);
+    // }
+    // access(
+    //   assetPath,
+    //   constants.F_OK | constants.R_OK | constants.W_OK,
+    //   (err) => {
+    //     if (err) {
+    //       throw new Error(`${assetPath} must be readable and writable`);
+    //     }
+    //   },
+    // );
 
     driver = new FSDriver({
       location: isAbsolute(assetPath)
