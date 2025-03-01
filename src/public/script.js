@@ -41,7 +41,6 @@ function handleEvent(event) {
   let eventX, eventY;
   if (event.type.startsWith('touch')) {
     // Prevent the window from being scrolled
-    event.preventDefault();
     eventX = event.touches[0].clientX;
     eventY = event.touches[0].clientY;
   } else {
@@ -92,3 +91,4 @@ randomSpawnEmoji();
 
 // Use `mousemove` for desktop
 document.addEventListener('mousemove', handleEvent);
+document.addEventListener('touchmove', handleEvent);
