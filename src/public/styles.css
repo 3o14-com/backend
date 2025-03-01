@@ -41,6 +41,25 @@
   }
 }
 
+label {
+    display: block;
+    margin-bottom: 8px;
+}
+
+input {
+    display: block;
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+small {
+    display: block;
+    color: #666;
+}
+
 .emoji {
     position: absolute;
     user-select: none;
