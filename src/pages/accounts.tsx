@@ -48,7 +48,7 @@ accounts.post("/", async (c) => {
   const username = form.get("username")?.toString()?.trim();
   const name = form.get("name")?.toString()?.trim();
   const bio = form.get("bio")?.toString()?.trim();
-  const protected_ = form.get("protected") != null;
+  const protected_ = false;
   const discoverable = form.get("discoverable") != null;
   const language = form.get("language")?.toString()?.trim();
   const visibility = form
@@ -104,7 +104,7 @@ accounts.post("/", async (c) => {
         handle: `@${username}@${fedCtx.host}`,
         bioHtml: bioResult.html,
         url: fedCtx.getActorUri(username).href,
-        protected: protected_,
+        protected: false,
         inboxUrl: fedCtx.getInboxUri(username).href,
         followersUrl: fedCtx.getFollowersUri(username).href,
         sharedInboxUrl: fedCtx.getInboxUri().href,
