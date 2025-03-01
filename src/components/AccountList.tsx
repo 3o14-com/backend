@@ -71,14 +71,6 @@ function AccountItem({ accountOwner: { account } }: AccountItemProps) {
             >
               Edit
             </a>
-            <a
-              href={`/accounts/${account.id}/migrate`}
-              role="button"
-              className="contrast"
-              style="display: block;"
-            >
-              Migrate from/to
-            </a>
             <button type="submit" className="secondary">
               Delete
             </button>
