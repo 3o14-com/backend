@@ -1,4 +1,3 @@
-import iso6391 from "iso-639-1";
 import type { PostVisibility } from "../schema";
 
 export interface AccountFormProps {
@@ -78,16 +77,6 @@ export function AccountForm(props: AccountFormProps) {
               : props.errors.bio}
           </small>
         </label>
-        <label>
-          <input
-            type="checkbox"
-            name="protected"
-            value="true"
-            checked={props.values?.protected}
-          />{" "}
-          Protect your account &mdash; only approved followers can see your
-          posts
-        </label>
       </fieldset>
       <fieldset>
         <label>
@@ -101,20 +90,6 @@ export function AccountForm(props: AccountFormProps) {
         </label>
       </fieldset>
       <fieldset class="grid">
-        <label>
-          Default language{" "}
-          <select name="language">
-            {iso6391
-              .getAllCodes()
-              .map((code) => [code, iso6391.getNativeName(code)])
-              .sort(([_, nameA], [__, nameB]) => nameA.localeCompare(nameB))
-              .map(([code, nativeName]) => (
-                <option value={code} selected={props.values?.language === code}>
-                  {nativeName} ({iso6391.getName(code)})
-                </option>
-              ))}
-          </select>
-        </label>
         <label>
           Default visibility{" "}
           <select name="visibility">
