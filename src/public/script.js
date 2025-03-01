@@ -92,5 +92,3 @@ randomSpawnEmoji();
 
 // Use `mousemove` for desktop
 document.addEventListener('mousemove', handleEvent);
-// Use `touchmove` for continuous touch events on mobile
-document.addEventListener('touchmove', handleEvent, { passive: false });
