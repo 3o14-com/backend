@@ -63,7 +63,6 @@ accounts.post("/", async (c) => {
           username,
           name,
           bio,
-          protected: protected_,
           discoverable,
           language,
           visibility,
@@ -109,7 +108,6 @@ accounts.post("/", async (c) => {
         inboxUrl: fedCtx.getInboxUri(username).href,
         followersUrl: fedCtx.getFollowersUri(username).href,
         sharedInboxUrl: fedCtx.getInboxUri().href,
-        featuredUrl: fedCtx.getFeaturedUri(username).href,
         published: new Date(),
       })
       .returning();
@@ -200,8 +198,6 @@ function AccountPage(props: AccountPageProps) {
           username: username.replace(/^@/, ""),
           name: props.values?.name ?? props.accountOwner.account.name,
           bio: props.values?.bio ?? props.accountOwner.bio ?? undefined,
-          protected:
-            props.values?.protected ?? props.accountOwner.account.protected,
           discoverable:
             props.values?.discoverable ?? props.accountOwner.discoverable,
           language: props.values?.language ?? props.accountOwner.language,
