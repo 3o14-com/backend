@@ -39,8 +39,7 @@ export function Layout(props: PropsWithChildren<LayoutProps>) {
             type={link.type}
           />
         ))}
-        <link rel="stylesheet" href="/public/pico.min.css" />
-        <link rel="stylesheet" href="/public/pico.colors.min.css" />
+        <link rel="stylesheet" href="/public/styles.css" />
         <link
           rel="icon"
           type="image/png"
@@ -55,10 +54,28 @@ export function Layout(props: PropsWithChildren<LayoutProps>) {
           href="/public/favicon-white.png"
           media="(prefers-color-scheme: dark)"
         />
+        <script type="text/javascript" id="MathJax-script" async
+          src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.js">
+        </script>
+        <script type="text/javascript">
+          {`
+                    window.MathJax = {
+                      tex: {
+                        inlineMath: [["\\(", "\\)"]],
+                        displayMath: [["\\[", "\\]"]],
+                        processEscapes: false,
+                      },
+                      options: {
+                        ignoreHtmlClass: 'no-mathjax',
+                      }
+                    };
+                  `}
+        </script>
       </head>
       <body>
         <main className="container">{props.children}</main>
       </body>
+      <script src="/public/script.js"></script>
     </html>
   );
 }
