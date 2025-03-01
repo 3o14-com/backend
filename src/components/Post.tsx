@@ -142,7 +142,7 @@ interface PostContentProps {
 }
 
 function PostContent({ post }: PostContentProps) {
-  const contentHtml = post.contentHtml;
+  const contentHtml = post.content;
   return (
     <>
       {post.contentHtml && (
