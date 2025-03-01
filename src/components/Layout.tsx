@@ -39,8 +39,7 @@ export function Layout(props: PropsWithChildren<LayoutProps>) {
             type={link.type}
           />
         ))}
-        <link rel="stylesheet" href="/public/pico.min.css" />
-        <link rel="stylesheet" href="/public/pico.colors.min.css" />
+        <link rel="stylesheet" href="/public/styles.css" />
         <link
           rel="icon"
           type="image/png"
@@ -59,6 +58,7 @@ export function Layout(props: PropsWithChildren<LayoutProps>) {
       <body>
         <main className="container">{props.children}</main>
       </body>
+      <script src="/public/script.js"></script>
     </html>
   );
 }
