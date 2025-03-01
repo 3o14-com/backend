@@ -240,7 +240,6 @@ accounts.post("/:id", async (c) => {
         values={{
           name,
           bio,
-          protected: protected_,
           language,
           visibility,
           news,

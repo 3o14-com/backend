@@ -10,7 +10,6 @@ export interface AccountFormProps {
     username?: string;
     name?: string;
     bio?: string;
-    protected?: boolean;
     discoverable?: boolean;
     language?: string;
     visibility?: PostVisibility;

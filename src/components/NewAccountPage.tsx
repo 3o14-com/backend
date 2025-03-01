@@ -7,7 +7,6 @@ export interface NewAccountPageProps {
     username?: string;
     name?: string;
     bio?: string;
-    protected?: boolean;
     discoverable?: boolean;
     language?: string;
     visibility?: PostVisibility;
